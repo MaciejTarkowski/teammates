@@ -63,15 +63,42 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Future<List<Map<String, dynamic>>>? _eventsFuture;
+  final _searchController = TextEditingController();
+  String? _selectedCategory;
+  final _categories = ['piłka nożna', 'koszykówka', 'tenis', 'wyprawa motocyklowa'];
 
   @override
   void initState() {
     super.initState();
     _eventsFuture = _getEvents();
+    _searchController.addListener(() {
+      setState(() {
+        _eventsFuture = _getEvents();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<List<Map<String, dynamic>>> _getEvents() async {
-    final data = await supabase.from('events').select().order('event_time', ascending: true);
+    // Start with the select query builder
+    PostgrestFilterBuilder<List<Map<String, dynamic>>> query = supabase.from('events').select();
+
+    // Apply filters if present
+    if (_searchController.text.isNotEmpty) {
+      query = query.ilike('name', '%${_searchController.text}%');
+    }
+
+    if (_selectedCategory != null) {
+      query = query.eq('category', _selectedCategory!);
+    }
+
+    // Order the results
+    final data = await query.order('event_time', ascending: true);
     return data;
   }
 
@@ -95,46 +122,79 @@ class _HomeScreenState extends State<HomeScreen> {
           )
         ],
       ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _eventsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return Center(child: Text('Błąd: ${snapshot.error}'));
-          }
-          final events = snapshot.data!;
-          if (events.isEmpty) {
-            return const Center(child: Text('Brak nadchodzących wydarzeń.'));
-          }
-
-          return ListView.builder(
-            itemCount: events.length,
-            itemBuilder: (context, index) {
-              final event = events[index];
-              final eventTime = DateTime.parse(event['event_time']);
-
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: Theme.of(context).colorScheme.surface,
-                child: ListTile(
-                  title: Text(event['name'] ?? 'Brak nazwy'),
-                  subtitle: Text('${event['category']} \n${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}'),
-                  trailing: const Icon(Icons.arrow_forward_ios),
-                  onTap: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => EventDetailsScreen(eventId: event['id']),
-                      ),
-                    );
-                    _refreshEvents();
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(labelText: 'Szukaj po nazwie...', suffixIcon: Icon(Icons.search)),
+                ),
+                const SizedBox(height: 8),
+                DropdownButton<String>(
+                  value: _selectedCategory,
+                  isExpanded: true,
+                  hint: const Text('Filtruj po kategorii'),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Wszystkie kategorie')),
+                    ..._categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedCategory = value;
+                      _eventsFuture = _getEvents();
+                    });
                   },
                 ),
-              );
-            },
-          );
-        },
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _eventsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('Błąd: ${snapshot.error}'));
+                }
+                final events = snapshot.data!;
+                if (events.isEmpty) {
+                  return const Center(child: Text('Brak wydarzeń spełniających kryteria.'));
+                }
+
+                return ListView.builder(
+                  itemCount: events.length,
+                  itemBuilder: (context, index) {
+                    final event = events[index];
+                    final eventTime = DateTime.parse(event['event_time']);
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      color: Theme.of(context).colorScheme.surface,
+                      child: ListTile(
+                        title: Text(event['name'] ?? 'Brak nazwy'),
+                        subtitle: Text('${event['category']} \n${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}'),
+                        trailing: const Icon(Icons.arrow_forward_ios),
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => EventDetailsScreen(eventId: event['id']),
+                            ),
+                          );
+                          _refreshEvents();
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
