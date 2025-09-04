@@ -24,8 +24,6 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return MaterialApp(
       title: 'TeamMates',
       theme: ThemeData(
@@ -43,11 +41,13 @@ class MyApp extends StatelessWidget {
           surface: Color(0xFF050505),
           onSurface: Colors.white,
         ),
-        fontFamily: GoogleFonts.georgia().fontFamily,
-        textTheme: textTheme.apply(
-          bodyColor: Colors.white,
-          displayColor: Colors.white,
-        ),
+        // Ustawienie domyślnej czcionki dla całej aplikacji
+        fontFamily: 'Georgia',
+        // Zastosowanie kolorów do istniejącego motywu tekstu
+        textTheme: Theme.of(context).textTheme.apply(
+              bodyColor: Colors.white,
+              displayColor: Colors.white,
+            ),
       ),
       home: const SplashScreen(),
     );
@@ -88,11 +88,11 @@ class _HomeScreenState extends State<HomeScreen> {
     var query = supabase.from('events').select().order('event_time', ascending: true);
 
     if (_searchController.text.isNotEmpty) {
-      query = query.filter('name', 'ilike', '%${_searchController.text}%');
+      query = query.ilike('name', '%${_searchController.text}%');
     }
 
     if (_selectedCategory != null) {
-      query = query.filter('category', 'eq', _selectedCategory!);
+      query = query.eq('category', _selectedCategory!);
     }
 
     final data = await query;
