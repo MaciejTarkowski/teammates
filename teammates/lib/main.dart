@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/screens/create_event_screen.dart';
 import 'package:teammates/screens/event_details_screen.dart';
 import 'package:teammates/screens/splash_screen.dart';
+import 'package:geolocator/geolocator.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -65,16 +66,27 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<List<Map<String, dynamic>>>? _eventsFuture;
   final _searchController = TextEditingController();
   String? _selectedCategory;
+  Position? _currentPosition;
+  double? _selectedRadius;
+
   final _categories = ['piłka nożna', 'koszykówka', 'tenis', 'wyprawa motocyklowa'];
+  final _radii = {1: '1 km', 2: '2 km', 5: '5 km', 10: '10 km', 20: '20 km'};
 
   @override
   void initState() {
     super.initState();
-    _eventsFuture = _getEvents();
+    _initializeData();
     _searchController.addListener(() {
       setState(() {
         _eventsFuture = _getEvents();
       });
+    });
+  }
+
+  Future<void> _initializeData() async {
+    await _getCurrentLocation();
+    setState(() {
+      _eventsFuture = _getEvents();
     });
   }
 
@@ -84,22 +96,76 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Brak uprawnień do lokalizacji'), backgroundColor: Colors.redAccent),
+            );
+          }
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Uprawnienia do lokalizacji zostały trwale odrzucone'), backgroundColor: Colors.redAccent),
+          );
+        }
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Błąd pobierania lokalizacji: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _getEvents() async {
-    // Start with the select query builder
-    PostgrestFilterBuilder<List<Map<String, dynamic>>> query = supabase.from('events').select();
+    List<Map<String, dynamic>> events;
 
-    // Apply filters if present
+    if (_currentPosition != null && _selectedRadius != null) {
+      // Use RPC for location-based filtering
+      events = await supabase.rpc(
+        'get_events_in_radius',
+        params: {
+          'user_lat': _currentPosition!.latitude,
+          'user_lng': _currentPosition!.longitude,
+          'radius_km': _selectedRadius!,
+        },
+      );
+    } else {
+      // Fallback to fetching all events if no location filter
+      events = await supabase.from('events').select().order('event_time', ascending: true);
+    }
+
+    // Apply text search filter (always client-side for now)
     if (_searchController.text.isNotEmpty) {
-      query = query.ilike('name', '%${_searchController.text}%');
+      events = events.where((event) {
+        final name = event['name']?.toString().toLowerCase() ?? '';
+        return name.contains(_searchController.text.toLowerCase());
+      }).toList();
     }
 
+    // Apply category filter (always client-side for now)
     if (_selectedCategory != null) {
-      query = query.eq('category', _selectedCategory!);
+      events = events.where((event) {
+        return event['category'] == _selectedCategory;
+      }).toList();
     }
 
-    // Order the results
-    final data = await query.order('event_time', ascending: true);
-    return data;
+    return events;
   }
 
   void _refreshEvents() {
@@ -133,20 +199,44 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: const InputDecoration(labelText: 'Szukaj po nazwie...', suffixIcon: Icon(Icons.search)),
                 ),
                 const SizedBox(height: 8),
-                DropdownButton<String>(
-                  value: _selectedCategory,
-                  isExpanded: true,
-                  hint: const Text('Filtruj po kategorii'),
-                  items: [
-                    const DropdownMenuItem(value: null, child: Text('Wszystkie kategorie')),
-                    ..._categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButton<String>(
+                        value: _selectedCategory,
+                        isExpanded: true,
+                        hint: const Text('Filtruj po kategorii'),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Wszystkie kategorie')),
+                          ..._categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedCategory = value;
+                            _eventsFuture = _getEvents();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButton<double>(
+                        value: _selectedRadius,
+                        isExpanded: true,
+                        hint: const Text('Promień'),
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Dowolny')),
+                          ..._radii.keys.map((radius) => DropdownMenuItem(value: radius.toDouble(), child: Text(_radii[radius]!))),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedRadius = value;
+                            _eventsFuture = _getEvents();
+                          });
+                        },
+                      ),
+                    ),
                   ],
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedCategory = value;
-                      _eventsFuture = _getEvents();
-                    });
-                  },
                 ),
               ],
             ),
