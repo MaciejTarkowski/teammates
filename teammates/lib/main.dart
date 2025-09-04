@@ -85,19 +85,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _getEvents() async {
-    SupabaseQueryBuilder query = supabase.from('events');
+    // Explicitly type the query builder
+    SupabaseQueryBuilder queryBuilder = supabase.from('events');
 
-    // Budowanie zapytania z filtrami
+    // Apply filters to the query builder
     if (_searchController.text.isNotEmpty) {
-      query = query.ilike('name', '%${_searchController.text}%');
+      queryBuilder = queryBuilder.ilike('name', '%${_searchController.text}%');
     }
 
     if (_selectedCategory != null) {
-      query = query.eq('category', _selectedCategory!);
+      queryBuilder = queryBuilder.eq('category', _selectedCategory!);
     }
 
-    // Wykonanie zapytania z select i sortowaniem
-    final data = await query.select().order('event_time', ascending: true);
+    // Execute the select and order on the fully built query
+    final data = await queryBuilder.select().order('event_time', ascending: true);
     return data;
   }
 
