@@ -12,13 +12,34 @@ void main() async {
   await Supabase.initialize(
     url: 'https://jkzvbapuraymkkzzdygl.supabase.co',
     anonKey:
-        'eyJhbGciOiJIUzI1NiIsImtpZCI6InQ1MEdEQkYrTmpzd1UyRnEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprenZiYXB1cmF5bWtrenpkeWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5ODUxOTAsImV4cCI6MjA3MjU2MTE5MH0.I5ol5fauM-MkMbURTGairwdvIEEuZ9kdkjPB35ULbFo',
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprenZiYXB1cmF5bWtrenpkeWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5ODUxOTAsImV4cCI6MjA3MjU2MTE5MH0.I5ol5fauM-MkMbURTGairwdvIEEuZ9kdkjPB35ULbFo',
   );
 
   runApp(const MyApp());
 }
 
 final supabase = Supabase.instance.client;
+
+Future<void> logErrorToBackend({
+  String? eventId,
+  required String errorMessage,
+  required String operationType,
+  Map<String, dynamic>? eventData,
+}) async {
+  try {
+    await supabase.functions.invoke(
+      'log-error',
+      body: {
+        'eventId': eventId,
+        'errorMessage': errorMessage,
+        'operationType': operationType,
+        'eventData': eventData,
+      },
+    );
+  } catch (e) {
+    debugPrint('Failed to log error to backend: $e');
+  }
+}
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -45,10 +66,9 @@ class MyApp extends StatelessWidget {
         // Ustawienie domyślnej czcionki dla całej aplikacji
         fontFamily: 'Georgia',
         // Zastosowanie kolorów do istniejącego motywu tekstu
-        textTheme: Theme.of(context).textTheme.apply(
-              bodyColor: Colors.white,
-              displayColor: Colors.white,
-            ),
+        textTheme: Theme.of(
+          context,
+        ).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
       ),
       home: const SplashScreen(),
     );
@@ -69,7 +89,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Position? _currentPosition;
   double? _selectedRadius;
 
-  final _categories = ['piłka nożna', 'koszykówka', 'tenis', 'wyprawa motocyklowa'];
+  final _categories = [
+    'piłka nożna',
+    'koszykówka',
+    'tenis',
+    'wyprawa motocyklowa',
+  ];
   final _radii = {1: '1 km', 2: '2 km', 5: '5 km', 10: '10 km', 20: '20 km'};
 
   @override
@@ -104,7 +129,10 @@ class _HomeScreenState extends State<HomeScreen> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Brak uprawnień do lokalizacji'), backgroundColor: Colors.redAccent),
+              const SnackBar(
+                content: Text('Brak uprawnień do lokalizacji'),
+                backgroundColor: Colors.redAccent,
+              ),
             );
           }
           return;
@@ -113,20 +141,30 @@ class _HomeScreenState extends State<HomeScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Uprawnienia do lokalizacji zostały trwale odrzucone'), backgroundColor: Colors.redAccent),
+            const SnackBar(
+              content: Text(
+                'Uprawnienia do lokalizacji zostały trwale odrzucone',
+              ),
+              backgroundColor: Colors.redAccent,
+            ),
           );
         }
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
       setState(() {
         _currentPosition = position;
       });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Błąd pobierania lokalizacji: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Błąd pobierania lokalizacji: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
     }
@@ -139,7 +177,8 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('Current Position: $_currentPosition');
       debugPrint('Selected Radius: $_selectedRadius');
 
-      double effectiveRadiusKm = _selectedRadius ?? 100.0; // Domyślny promień 100km dla 'Dowolny'
+      double effectiveRadiusKm =
+          _selectedRadius ?? 100.0; // Domyślny promień 100km dla 'Dowolny'
 
       if (_currentPosition != null) {
         // Użyj RPC do filtrowania po lokalizacji
@@ -149,14 +188,14 @@ class _HomeScreenState extends State<HomeScreen> {
           'radius_km': effectiveRadiusKm,
         };
         debugPrint('RPC Params: $rpcParams');
-        events = await supabase.rpc(
-          'get_events_in_radius',
-          params: rpcParams,
-        );
+        events = await supabase.rpc('get_events_in_radius', params: rpcParams);
         debugPrint('Events from RPC: $events');
       } else {
         // Fallback do pobierania wszystkich wydarzeń, jeśli brak lokalizacji użytkownika
-        events = await supabase.from('events').select().order('event_time', ascending: true);
+        events = await supabase
+            .from('events')
+            .select()
+            .order('event_time', ascending: true);
         debugPrint('Events from fallback: $events');
       }
 
@@ -177,7 +216,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Błąd ładowania wydarzeń: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Błąd ładowania wydarzeń: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
         );
       }
       debugPrint('Error loading events: $e');
@@ -203,8 +245,14 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: const Icon(Icons.logout),
             onPressed: () async {
               await supabase.auth.signOut();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const SplashScreen()),
+                  (route) => false,
+                );
+              }
             },
-          )
+          ),
         ],
       ),
       body: Column(
@@ -215,7 +263,10 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(labelText: 'Szukaj po nazwie...', suffixIcon: Icon(Icons.search)),
+                  decoration: const InputDecoration(
+                    labelText: 'Szukaj po nazwie...',
+                    suffixIcon: Icon(Icons.search),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -226,8 +277,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         isExpanded: true,
                         hint: const Text('Filtruj po kategorii'),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('Wszystkie kategorie')),
-                          ..._categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Wszystkie kategorie'),
+                          ),
+                          ..._categories.map(
+                            (cat) =>
+                                DropdownMenuItem(value: cat, child: Text(cat)),
+                          ),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -244,8 +301,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         isExpanded: true,
                         hint: const Text('Promień'),
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('Dowolny')),
-                          ..._radii.keys.map((radius) => DropdownMenuItem(value: radius.toDouble(), child: Text(_radii[radius]!))),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Dowolny'),
+                          ),
+                          ..._radii.keys.map(
+                            (radius) => DropdownMenuItem(
+                              value: radius.toDouble(),
+                              child: Text(_radii[radius]!),
+                            ),
+                          ),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -273,7 +338,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
                 // Handle no data or empty data
                 if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(child: Text('Brak wydarzeń spełniających kryteria.'));
+                  return const Center(
+                    child: Text('Brak wydarzeń spełniających kryteria.'),
+                  );
                 }
 
                 final events = snapshot.data!;
@@ -285,16 +352,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     final eventTime = DateTime.parse(event['event_time']);
 
                     return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       color: Theme.of(context).colorScheme.surface,
                       child: ListTile(
                         title: Text(event['name'] ?? 'Brak nazwy'),
-                        subtitle: Text('${event['category']} \n${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}'),
+                        subtitle: Text(
+                          '${event['category']} \n${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}',
+                        ),
                         trailing: const Icon(Icons.arrow_forward_ios),
                         onTap: () async {
                           await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => EventDetailsScreen(eventId: event['id']),
+                              builder: (context) =>
+                                  EventDetailsScreen(eventId: event['id']),
                             ),
                           );
                           _refreshEvents();

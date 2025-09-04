@@ -25,6 +25,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Location? _geocodedLocation;
   List<Map<String, dynamic>> _suggestions = [];
   Timer? _debounce;
+  bool _isSelectingLocation = false;
 
   final _nominatimService = NominatimService();
 
@@ -46,6 +47,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   void _onLocationChanged() {
+    if (_isSelectingLocation) {
+      return;
+    }
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       if (_locationController.text.isNotEmpty) {
@@ -131,8 +135,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           SnackBar(content: Text('Błąd pobierania lokalizacji: $e'), backgroundColor: Colors.redAccent),
         );
       }
-    }
-  } finally {
+    } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -216,6 +219,21 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         Navigator.of(context).pop();
       }
     } catch (error) {
+      logErrorToBackend(
+        errorMessage: error.toString(),
+        operationType: 'create_event',
+        eventData: {
+          'name': _nameController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'location_text': _locationController.text.trim(),
+          'event_time': _eventTime?.toIso8601String(),
+          'max_participants': _maxParticipants,
+          'category': _category,
+          'organizer_id': supabase.auth.currentUser?.id,
+          'location_lat': _currentPosition?.latitude ?? _geocodedLocation?.latitude,
+          'location_lng': _currentPosition?.longitude ?? _geocodedLocation?.longitude,
+        },
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Nie udało się utworzyć wydarzenia: $error'), backgroundColor: Theme.of(context).colorScheme.error),
@@ -282,6 +300,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             return ListTile(
                               title: Text(suggestion['display_name']),
                               onTap: () {
+                                _isSelectingLocation = true;
                                 setState(() {
                                   _locationController.text = suggestion['display_name'];
                                   _geocodedLocation = Location(
@@ -291,6 +310,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                                   );
                                   _suggestions = []; // Wyczyść sugestie po wyborze
                                 });
+                                _isSelectingLocation = false;
                               },
                             );
                           },
