@@ -136,19 +136,26 @@ class _HomeScreenState extends State<HomeScreen> {
     List<Map<String, dynamic>> events = [];
 
     try {
+      debugPrint('Current Position: $_currentPosition');
+      debugPrint('Selected Radius: $_selectedRadius');
+
       if (_currentPosition != null && _selectedRadius != null) {
         // Use RPC for location-based filtering
+        final rpcParams = {
+          'user_lat': _currentPosition!.latitude,
+          'user_lng': _currentPosition!.longitude,
+          'radius_km': _selectedRadius!,
+        };
+        debugPrint('RPC Params: $rpcParams');
         events = await supabase.rpc(
           'get_events_in_radius',
-          params: {
-            'user_lat': _currentPosition!.latitude,
-            'user_lng': _currentPosition!.longitude,
-            'radius_km': _selectedRadius!,
-          },
+          params: rpcParams,
         );
+        debugPrint('Events from RPC: $events');
       } else {
         // Fallback to fetching all events if no location filter
         events = await supabase.from('events').select().order('event_time', ascending: true);
+        debugPrint('Events from fallback: $events');
       }
 
       // Apply text search filter (always client-side for now)
@@ -171,6 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
           SnackBar(content: Text('Błąd ładowania wydarzeń: $e'), backgroundColor: Colors.redAccent),
         );
       }
+      debugPrint('Error loading events: $e');
       return []; // Return empty list on error
     }
 
