@@ -131,7 +131,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           SnackBar(content: Text('Błąd pobierania lokalizacji: $e'), backgroundColor: Colors.redAccent),
         );
       }
-    } finally {
+    }
+  } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;

@@ -12,7 +12,7 @@ void main() async {
   await Supabase.initialize(
     url: 'https://jkzvbapuraymkkzzdygl.supabase.co',
     anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprenZiYXB1cmF5bWtrenpkeWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5ODUxOTAsImV4cCI6MjA3MjU2MTE5MH0.I5ol5fauM-MkMbURTGairwdvIEEuZ9kdkjPB35ULbFo',
+        'eyJhbGciOiJIUzI1NiIsImtpZCI6InQ1MEdEQkYrTmpzd1UyRnEiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprenZiYXB1cmF5bWtrenpkeWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5ODUxOTAsImV4cCI6MjA3MjU2MTE5MH0.I5ol5fauM-MkMbURTGairwdvIEEuZ9kdkjPB35ULbFo',
   );
 
   runApp(const MyApp());
@@ -139,12 +139,14 @@ class _HomeScreenState extends State<HomeScreen> {
       debugPrint('Current Position: $_currentPosition');
       debugPrint('Selected Radius: $_selectedRadius');
 
-      if (_currentPosition != null && _selectedRadius != null) {
-        // Use RPC for location-based filtering
+      double effectiveRadiusKm = _selectedRadius ?? 100.0; // Domyślny promień 100km dla 'Dowolny'
+
+      if (_currentPosition != null) {
+        // Użyj RPC do filtrowania po lokalizacji
         final rpcParams = {
           'user_lat': _currentPosition!.latitude,
           'user_lng': _currentPosition!.longitude,
-          'radius_km': _selectedRadius!,
+          'radius_km': effectiveRadiusKm,
         };
         debugPrint('RPC Params: $rpcParams');
         events = await supabase.rpc(
@@ -153,12 +155,12 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         debugPrint('Events from RPC: $events');
       } else {
-        // Fallback to fetching all events if no location filter
+        // Fallback do pobierania wszystkich wydarzeń, jeśli brak lokalizacji użytkownika
         events = await supabase.from('events').select().order('event_time', ascending: true);
         debugPrint('Events from fallback: $events');
       }
 
-      // Apply text search filter (always client-side for now)
+      // Zastosuj filtr wyszukiwania tekstowego (zawsze po stronie klienta)
       if (_searchController.text.isNotEmpty) {
         events = events.where((event) {
           final name = event['name']?.toString().toLowerCase() ?? '';
@@ -166,7 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }).toList();
       }
 
-      // Apply category filter (always client-side for now)
+      // Zastosuj filtr kategorii (zawsze po stronie klienta)
       if (_selectedCategory != null) {
         events = events.where((event) {
           return event['category'] == _selectedCategory;
@@ -179,7 +181,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
       debugPrint('Error loading events: $e');
-      return []; // Return empty list on error
+      return []; // Zwróć pustą listę w przypadku błędu
     }
 
     return events;
