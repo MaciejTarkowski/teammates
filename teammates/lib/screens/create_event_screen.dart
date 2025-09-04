@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:teammates/main.dart';
+import 'package:teammates/services/nominatim_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -21,15 +23,54 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   bool _isLoading = false;
   Position? _currentPosition;
   Location? _geocodedLocation;
+  List<Map<String, dynamic>> _suggestions = [];
+  Timer? _debounce;
+
+  final _nominatimService = NominatimService();
 
   final _categories = ['piłka nożna', 'koszykówka', 'tenis', 'wyprawa motocyklowa'];
+
+  @override
+  void initState() {
+    super.initState();
+    _locationController.addListener(_onLocationChanged);
+  }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
     _locationController.dispose();
+    _debounce?.cancel();
     super.dispose();
+  }
+
+  void _onLocationChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (_locationController.text.isNotEmpty) {
+        _searchLocation(_locationController.text);
+      } else {
+        setState(() {
+          _suggestions = [];
+        });
+      }
+    });
+  }
+
+  Future<void> _searchLocation(String query) async {
+    try {
+      final results = await _nominatimService.search(query);
+      setState(() {
+        _suggestions = results;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Błąd wyszukiwania lokalizacji: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
   }
 
   Future<void> _selectDateTime() async {
@@ -82,6 +123,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       setState(() {
         _currentPosition = position;
         _locationController.text = '${position.latitude}, ${position.longitude}'; // Wyświetl współrzędne
+        _suggestions = []; // Wyczyść sugestie po użyciu bieżącej lokalizacji
       });
     } catch (e) {
       if (mounted) {
@@ -221,8 +263,38 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           _geocodedLocation = null;
                           _currentPosition = null;
                         });
+                        _onLocationChanged(); // Wywołaj funkcję wyszukiwania sugestii
                       },
                     ),
+                    // Lista sugestii
+                    if (_suggestions.isNotEmpty)
+                      Container(
+                        height: 200, // Ogranicz wysokość listy sugestii
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: ListView.builder(
+                          itemCount: _suggestions.length,
+                          itemBuilder: (context, index) {
+                            final suggestion = _suggestions[index];
+                            return ListTile(
+                              title: Text(suggestion['display_name']),
+                              onTap: () {
+                                setState(() {
+                                  _locationController.text = suggestion['display_name'];
+                                  _geocodedLocation = Location(
+                                    latitude: double.parse(suggestion['lat']),
+                                    longitude: double.parse(suggestion['lon']),
+                                    timestamp: DateTime.now(),
+                                  );
+                                  _suggestions = []; // Wyczyść sugestie po wyborze
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
                     const SizedBox(height: 8),
                     ElevatedButton(
                       onPressed: _getCurrentLocation,
