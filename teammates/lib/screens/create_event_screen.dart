@@ -102,7 +102,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_locationController.text.isEmpty) return;
 
     try {
-      List<Location> locations = await geocoding.locationFromAddress(_locationController.text);
+      List<Location> locations = await locationFromAddress(_locationController.text);
       if (locations.isNotEmpty) {
         setState(() {
           _geocodedLocation = locations.first;

@@ -133,36 +133,45 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _getEvents() async {
-    List<Map<String, dynamic>> events;
+    List<Map<String, dynamic>> events = [];
 
-    if (_currentPosition != null && _selectedRadius != null) {
-      // Use RPC for location-based filtering
-      events = await supabase.rpc(
-        'get_events_in_radius',
-        params: {
-          'user_lat': _currentPosition!.latitude,
-          'user_lng': _currentPosition!.longitude,
-          'radius_km': _selectedRadius!,
-        },
-      );
-    } else {
-      // Fallback to fetching all events if no location filter
-      events = await supabase.from('events').select().order('event_time', ascending: true);
-    }
+    try {
+      if (_currentPosition != null && _selectedRadius != null) {
+        // Use RPC for location-based filtering
+        events = await supabase.rpc(
+          'get_events_in_radius',
+          params: {
+            'user_lat': _currentPosition!.latitude,
+            'user_lng': _currentPosition!.longitude,
+            'radius_km': _selectedRadius!,
+          },
+        );
+      } else {
+        // Fallback to fetching all events if no location filter
+        events = await supabase.from('events').select().order('event_time', ascending: true);
+      }
 
-    // Apply text search filter (always client-side for now)
-    if (_searchController.text.isNotEmpty) {
-      events = events.where((event) {
-        final name = event['name']?.toString().toLowerCase() ?? '';
-        return name.contains(_searchController.text.toLowerCase());
-      }).toList();
-    }
+      // Apply text search filter (always client-side for now)
+      if (_searchController.text.isNotEmpty) {
+        events = events.where((event) {
+          final name = event['name']?.toString().toLowerCase() ?? '';
+          return name.contains(_searchController.text.toLowerCase());
+        }).toList();
+      }
 
-    // Apply category filter (always client-side for now)
-    if (_selectedCategory != null) {
-      events = events.where((event) {
-        return event['category'] == _selectedCategory;
-      }).toList();
+      // Apply category filter (always client-side for now)
+      if (_selectedCategory != null) {
+        events = events.where((event) {
+          return event['category'] == _selectedCategory;
+        }).toList();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Błąd ładowania wydarzeń: $e'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return []; // Return empty list on error
     }
 
     return events;
@@ -248,13 +257,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
+                // Handle error state
                 if (snapshot.hasError) {
                   return Center(child: Text('Błąd: ${snapshot.error}'));
                 }
-                final events = snapshot.data!;
-                if (events.isEmpty) {
+                // Handle no data or empty data
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
                   return const Center(child: Text('Brak wydarzeń spełniających kryteria.'));
                 }
+
+                final events = snapshot.data!;
 
                 return ListView.builder(
                   itemCount: events.length,
