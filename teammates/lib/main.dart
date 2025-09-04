@@ -85,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _getEvents() async {
-    var query = supabase.from('events').select().order('event_time', ascending: true);
+    var query = supabase.from('events').select<List<Map<String, dynamic>>>();
 
     if (_searchController.text.isNotEmpty) {
       query = query.ilike('name', '%${_searchController.text}%');
@@ -95,7 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
       query = query.eq('category', _selectedCategory!);
     }
 
-    final data = await query;
+    final data = await query.order('event_time', ascending: true);
     return data;
   }
 
