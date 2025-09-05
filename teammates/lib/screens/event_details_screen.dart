@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
+import 'package:teammates/screens/attendance_screen.dart';
+import 'package:teammates/services/error_service.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final String eventId;
@@ -20,35 +22,71 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   }
 
   Future<Map<String, dynamic>> _fetchDetails() async {
-    final eventRes = await supabase
-        .from('events')
-        .select()
-        .eq('id', widget.eventId)
-        .single();
-    final participantsRes = await supabase
-        .from('event_participants')
-        .select('user_id')
-        .eq('event_id', widget.eventId);
-
-    final currentUser = supabase.auth.currentUser;
-    bool isUserSignedUp = false;
-    bool isOrganizer = false;
-    if (currentUser != null) {
-      isOrganizer = currentUser.id == eventRes['organizer_id'];
-      final userSignUpRes = await supabase
-          .from('event_participants')
+    try {
+      final eventRes = await supabase
+          .from('events')
           .select()
-          .eq('event_id', widget.eventId)
-          .eq('user_id', currentUser.id);
-      isUserSignedUp = userSignUpRes.isNotEmpty;
-    }
+          .eq('id', widget.eventId)
+          .single();
 
-    return {
-      'event': eventRes,
-      'participants': participantsRes,
-      'isUserSignedUp': isUserSignedUp,
-      'isOrganizer': isOrganizer,
-    };
+      final organizerId = eventRes['organizer_id'];
+      String organizerName = 'Anonimowy'; // Default name
+      if (organizerId != null) {
+        try {
+          final List<dynamic> profileResList = await supabase.rpc(
+            'get_profile_with_email',
+            params: {'p_user_id': organizerId},
+          );
+          
+          if (profileResList.isNotEmpty) {
+            final profileRes = profileResList.first as Map<String, dynamic>;
+            final Map<String, dynamic>? userMetadata = profileRes['user_metadata'] as Map<String, dynamic>?;
+
+            if (userMetadata != null) {
+              organizerName = userMetadata['full_name'] ?? userMetadata['email'] ?? 'Anonimowy';
+            } else {
+              organizerName = 'Anonimowy'; // Fallback if user_metadata is null
+            }
+          }
+        } catch (e) {
+          print('Could not fetch organizer profile with email: $e');
+        }
+      }
+
+      final participantsRes = await supabase
+          .from('event_participants')
+          .select('user_id')
+          .eq('event_id', widget.eventId);
+
+      final currentUser = supabase.auth.currentUser;
+      bool isUserSignedUp = false;
+      bool isOrganizer = false;
+      if (currentUser != null) {
+        isOrganizer = currentUser.id == eventRes['organizer_id'];
+        final userSignUpRes = await supabase
+            .from('event_participants')
+            .select()
+            .eq('event_id', widget.eventId)
+            .eq('user_id', currentUser.id);
+        isUserSignedUp = userSignUpRes.isNotEmpty;
+      }
+
+      return {
+        'event': eventRes,
+        'participants': participantsRes,
+        'isUserSignedUp': isUserSignedUp,
+        'isOrganizer': isOrganizer,
+        'organizerName': organizerName,
+      };
+    } catch (error) {
+      ErrorService.logError(
+        eventId: widget.eventId,
+        errorMessage: error.toString(),
+        operationType: 'fetch_event_details',
+      );
+      // Re-throw the error to be caught by the FutureBuilder
+      throw Exception('Failed to load event details: $error');
+    }
   }
 
   Future<void> _signUp() async {
@@ -64,13 +102,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         _detailsFuture = _fetchDetails(); // Refresh details
       });
     } catch (error) {
-      logErrorToBackend(
+      ErrorService.logError(
         eventId: widget.eventId,
         errorMessage: error.toString(),
         operationType: 'signup',
         eventData: {'user_id': supabase.auth.currentUser?.id},
       );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Błąd podczas zapisywania: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Błąd podczas zapisywania: ${error.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error));
     }
   }
 
@@ -88,13 +128,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         _detailsFuture = _fetchDetails(); // Refresh details
       });
     } catch (error) {
-      logErrorToBackend(
+      ErrorService.logError(
         eventId: widget.eventId,
         errorMessage: error.toString(),
         operationType: 'signout',
         eventData: {'user_id': supabase.auth.currentUser?.id},
       );
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Błąd podczas wypisywania: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Błąd podczas wypisywania: ${error.toString()}'),
+          backgroundColor: Theme.of(context).colorScheme.error));
     }
   }
 
@@ -161,14 +203,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         context,
       ).pop(); // Go back to previous screen after cancellation
     } catch (error) {
-      logErrorToBackend(
+      ErrorService.logError(
         eventId: eventId,
         errorMessage: error.toString(),
         operationType: 'cancel_event',
         eventData: {'reason': reason},
       );
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Błąd podczas anulowania wydarzenia: ${error.toString()}'), backgroundColor: Theme.of(context).colorScheme.error),
+        SnackBar(
+            content: Text('Błąd podczas anulowania wydarzenia: ${error.toString()}'),
+            backgroundColor: Theme.of(context).colorScheme.error),
       );
     }
   }
@@ -194,6 +238,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           final participants = data['participants'] as List;
           final isUserSignedUp = data['isUserSignedUp'] as bool;
           final isOrganizer = data['isOrganizer'] as bool;
+          final organizerName = data['organizerName'] as String;
 
           int currentParticipants = participants.length;
           if (isOrganizer && !isUserSignedUp) {
@@ -203,6 +248,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           final eventTime = DateTime.parse(event['event_time']);
           final bool canSignUp =
               currentParticipants < event['max_participants'];
+          final bool isEventFinished = eventTime.isBefore(DateTime.now());
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -223,6 +269,11 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 Text('GDZIE: ${event['location_text'] ?? 'Brak lokalizacji'}'),
                 const SizedBox(height: 16),
                 Text(
+                  'ORGANIZATOR: $organizerName',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 16),
+                Text(
                   event['description'] ?? 'Brak opisu.',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
@@ -232,12 +283,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
-                // TODO: Zastąpić listą nazw użytkowników, gdy tabela 'profiles' będzie dostępna
-                Text(
-                  participants
-                      .map((p) => (p['user_id'] as String).substring(0, 8))
-                      .join(', '),
-                ),
+                // Lista uczestników zostanie dodana w przyszłości
                 const SizedBox(height: 24),
                 if (isOrganizer)
                   ElevatedButton(
@@ -261,6 +307,20 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   const ElevatedButton(
                     onPressed: null,
                     child: Text('Brak miejsc'),
+                  ),
+                if (isOrganizer && isEventFinished)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => AttendanceScreen(eventId: event['id']),
+                          ),
+                        );
+                      },
+                      child: const Text('Zarządzaj obecnością'),
+                    ),
                   ),
               ],
             ),

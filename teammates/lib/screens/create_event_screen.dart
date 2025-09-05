@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:teammates/main.dart';
+import 'package:teammates/services/error_service.dart';
 import 'package:teammates/services/nominatim_service.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -29,7 +30,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   final _nominatimService = NominatimService();
 
-  final _categories = ['piłka nożna', 'koszykówka', 'tenis', 'wyprawa motocyklowa'];
+  final _categories = [
+    'piłka nożna',
+    'koszykówka',
+    'tenis',
+    'wyprawa motocyklowa'
+  ];
 
   @override
   void initState() {
@@ -69,9 +75,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         _suggestions = results;
       });
     } catch (e) {
+      ErrorService.logError(
+          errorMessage: e.toString(), operationType: 'searchLocation');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Błąd wyszukiwania lokalizacji: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Błąd wyszukiwania lokalizacji: $e'),
+              backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -108,7 +118,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         if (permission == LocationPermission.denied) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Brak uprawnień do lokalizacji'), backgroundColor: Colors.redAccent),
+              const SnackBar(
+                  content: Text('Brak uprawnień do lokalizacji'),
+                  backgroundColor: Colors.redAccent),
             );
           }
           return;
@@ -117,22 +129,31 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       if (permission == LocationPermission.deniedForever) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Uprawnienia do lokalizacji zostały trwale odrzucone'), backgroundColor: Colors.redAccent),
+            const SnackBar(
+                content: Text(
+                    'Uprawnienia do lokalizacji zostały trwale odrzucone'),
+                backgroundColor: Colors.redAccent),
           );
         }
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high);
       setState(() {
         _currentPosition = position;
-        _locationController.text = '${position.latitude}, ${position.longitude}'; // Wyświetl współrzędne
+        _locationController.text =
+            '${position.latitude}, ${position.longitude}'; // Wyświetl współrzędne
         _suggestions = []; // Wyczyść sugestie po użyciu bieżącej lokalizacji
       });
     } catch (e) {
+      ErrorService.logError(
+          errorMessage: e.toString(), operationType: 'getCurrentLocation');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Błąd pobierania lokalizacji: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Błąd pobierania lokalizacji: $e'),
+              backgroundColor: Colors.redAccent),
         );
       }
     } finally {
@@ -156,14 +177,20 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nie znaleziono lokalizacji dla podanego adresu'), backgroundColor: Colors.redAccent),
+            const SnackBar(
+                content: Text('Nie znaleziono lokalizacji dla podanego adresu'),
+                backgroundColor: Colors.redAccent),
           );
         }
       }
     } catch (e) {
+      ErrorService.logError(
+          errorMessage: e.toString(), operationType: 'geocodeAddress');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Błąd geokodowania adresu: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+              content: Text('Błąd geokodowania adresu: $e'),
+              backgroundColor: Colors.redAccent),
         );
       }
     }
@@ -176,19 +203,26 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     if (_eventTime == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Proszę wybrać datę i godzinę wydarzenia'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: const Text('Proszę wybrać datę i godzinę wydarzenia'),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
       return;
     }
 
     // Upewnij się, że mamy współrzędne, jeśli adres został wpisany ręcznie
-    if (_locationController.text.isNotEmpty && _currentPosition == null && _geocodedLocation == null) {
+    if (_locationController.text.isNotEmpty &&
+        _currentPosition == null &&
+        _geocodedLocation == null) {
       await _geocodeAddress();
       if (_geocodedLocation == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: const Text('Nie udało się uzyskać współrzędnych dla lokalizacji'), backgroundColor: Theme.of(context).colorScheme.error),
+            SnackBar(
+                content: const Text(
+                    'Nie udało się uzyskać współrzędnych dla lokalizacji'),
+                backgroundColor: Theme.of(context).colorScheme.error),
           );
         }
         return;
@@ -209,7 +243,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'category': _category,
         'organizer_id': supabase.auth.currentUser!.id,
         'location_lat': _currentPosition?.latitude ?? _geocodedLocation?.latitude,
-        'location_lng': _currentPosition?.longitude ?? _geocodedLocation?.longitude,
+        'location_lng':
+            _currentPosition?.longitude ?? _geocodedLocation?.longitude,
       });
 
       if (mounted) {
@@ -219,7 +254,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         Navigator.of(context).pop();
       }
     } catch (error) {
-      logErrorToBackend(
+      ErrorService.logError(
         errorMessage: error.toString(),
         operationType: 'create_event',
         eventData: {
@@ -230,13 +265,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           'max_participants': _maxParticipants,
           'category': _category,
           'organizer_id': supabase.auth.currentUser?.id,
-          'location_lat': _currentPosition?.latitude ?? _geocodedLocation?.latitude,
-          'location_lng': _currentPosition?.longitude ?? _geocodedLocation?.longitude,
+          'location_lat':
+              _currentPosition?.latitude ?? _geocodedLocation?.latitude,
+          'location_lng':
+              _currentPosition?.longitude ?? _geocodedLocation?.longitude,
         },
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Nie udało się utworzyć wydarzenia: $error'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: Text('Nie udało się utworzyć wydarzenia: $error'),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     }
@@ -263,8 +302,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   children: [
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nazwa wydarzenia'),
-                      validator: (value) => value == null || value.isEmpty ? 'Podaj nazwę' : null,
+                      decoration:
+                          const InputDecoration(labelText: 'Nazwa wydarzenia'),
+                      validator: (value) =>
+                          value == null || value.isEmpty ? 'Podaj nazwę' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -302,13 +343,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                               onTap: () {
                                 _isSelectingLocation = true;
                                 setState(() {
-                                  _locationController.text = suggestion['display_name'];
+                                  _locationController.text =
+                                      suggestion['display_name'];
                                   _geocodedLocation = Location(
-                                    latitude: double.parse(suggestion['lat']),
-                                    longitude: double.parse(suggestion['lon']),
+                                    latitude:
+                                        double.parse(suggestion['lat']),
+                                    longitude:
+                                        double.parse(suggestion['lon']),
                                     timestamp: DateTime.now(),
                                   );
-                                  _suggestions = []; // Wyczyść sugestie po wyborze
+                                  _suggestions =
+                                      []; // Wyczyść sugestie po wyborze
                                 });
                                 _isSelectingLocation = false;
                               },
@@ -325,7 +370,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     DropdownButtonFormField<String>(
                       value: _category,
                       decoration: const InputDecoration(labelText: 'Kategoria'),
-                      items: _categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))).toList(),
+                      items: _categories
+                          .map((cat) =>
+                              DropdownMenuItem(value: cat, child: Text(cat)))
+                          .toList(),
                       onChanged: (value) {
                         if (value != null) {
                           setState(() {
@@ -337,8 +385,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        Expanded(child: Text(_eventTime == null ? 'Nie wybrano daty' : '${_eventTime!.day}.${_eventTime!.month}.${_eventTime!.year} ${_eventTime!.hour}:${_eventTime!.minute.toString().padLeft(2, '0')}')),
-                        ElevatedButton(onPressed: _selectDateTime, child: const Text('Wybierz datę i czas')),
+                        Expanded(
+                            child: Text(_eventTime == null
+                                ? 'Nie wybrano daty'
+                                : '${_eventTime!.day}.${_eventTime!.month}.${_eventTime!.year} ${_eventTime!.hour}:${_eventTime!.minute.toString().padLeft(2, '0')}')),
+                        ElevatedButton(
+                            onPressed: _selectDateTime,
+                            child: const Text('Wybierz datę i czas')),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -357,7 +410,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                     const SizedBox(height: 24),
                     Center(
-                      child: ElevatedButton(onPressed: _submit, child: const Text('Utwórz wydarzenie')),
+                      child: ElevatedButton(
+                          onPressed: _submit,
+                          child: const Text('Utwórz wydarzenie')),
                     )
                   ],
                 ),

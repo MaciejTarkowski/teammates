@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/main.dart';
+import 'package:teammates/screens/main_screen.dart';
+import 'package:teammates/services/error_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
       if (session != null) {
         if (mounted) {
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const HomeScreen()),
+            MaterialPageRoute(builder: (context) => const MainScreen()),
           );
         }
       }
@@ -55,15 +57,23 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordController.text.trim(),
       );
     } on AuthException catch (error) {
+      ErrorService.logError(
+          errorMessage: error.message, operationType: 'signIn');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: Text(error.message),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } catch (error) {
+      ErrorService.logError(
+          errorMessage: error.toString(), operationType: 'signIn-general');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Wystąpił nieoczekiwany błąd'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: const Text('Wystąpił nieoczekiwany błąd'),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     }
@@ -89,19 +99,28 @@ class _LoginScreenState extends State<LoginScreen> {
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sprawdź email, aby potwierdzić rejestrację!')),
+          const SnackBar(
+              content: Text('Sprawdź email, aby potwierdzić rejestrację!')),
         );
       }
     } on AuthException catch (error) {
+      ErrorService.logError(
+          errorMessage: error.message, operationType: 'signUp');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.message), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: Text(error.message),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     } catch (error) {
+      ErrorService.logError(
+          errorMessage: error.toString(), operationType: 'signUp-general');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: const Text('Wystąpił nieoczekiwany błąd'), backgroundColor: Theme.of(context).colorScheme.error),
+          SnackBar(
+              content: const Text('Wystąpił nieoczekiwany błąd'),
+              backgroundColor: Theme.of(context).colorScheme.error),
         );
       }
     }

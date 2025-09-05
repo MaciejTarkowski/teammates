@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/screens/login_screen.dart';
+import 'package:teammates/screens/main_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -25,7 +26,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
     if (session != null) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        MaterialPageRoute(builder: (context) => const MainScreen()),
       );
     } else {
       Navigator.of(context).pushReplacement(
