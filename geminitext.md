@@ -1,0 +1,2 @@
+Stworzyłem aplikację opisaną w pliku PRD.md, zapoznaj się z plikiem i pomóż mi w dalszym dewelopmencie. Schemat bazy danych opisany jest w pliku schema.sql.
+Rozwiąż problemy opisane w pliku problem.md. Po każdym kroku będę sprawdzał poprawność działania aplikacji na emulatorze Pixel API 36, który uruchomisz za mnie i zbudujesz aplikację na nim. Po każdym kroku czekaj aż potwierdzę popranwość działania aplikacji.

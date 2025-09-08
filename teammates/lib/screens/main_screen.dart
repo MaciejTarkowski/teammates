@@ -14,7 +14,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  final GlobalKey<HomeScreenState> _homeScreenKey = GlobalKey();
 
   late final List<Widget> _widgetOptions;
 
@@ -22,7 +21,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _widgetOptions = <Widget>[
-      HomeScreen(key: _homeScreenKey),
+      const HomeScreen(),
       const MyEventsScreen(),
     ];
   }
@@ -31,10 +30,6 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedIndex = index;
     });
-  }
-
-  void _refreshHomeScreen() {
-    _homeScreenKey.currentState?.refreshEvents();
   }
 
   @override
@@ -57,8 +52,9 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      body: Center(
-        child: _widgetOptions.elementAt(_selectedIndex),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: _widgetOptions,
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -79,9 +75,7 @@ class _MainScreenState extends State<MainScreen> {
           await Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const CreateEventScreen()),
           );
-          if (_selectedIndex == 0) {
-             _refreshHomeScreen();
-          }
+          // Refresh logic is now handled inside HomeScreen
         },
         child: const Icon(Icons.add),
       ),

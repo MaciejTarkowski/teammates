@@ -10,8 +10,18 @@ CREATE TABLE public.error_logs (
   operation_type text NOT NULL,
   event_data_snapshot jsonb,
   CONSTRAINT error_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT error_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
-  CONSTRAINT error_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT error_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT error_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+);
+CREATE TABLE public.event_attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  event_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  status text NOT NULL CHECK (status = ANY (ARRAY['attended'::text, 'unjustified_absence'::text, 'justified_absence'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT event_attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT event_attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT event_attendance_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
 );
 CREATE TABLE public.event_participants (
   event_id uuid NOT NULL,
@@ -36,4 +46,11 @@ CREATE TABLE public.events (
   cancellation_reason text,
   CONSTRAINT events_pkey PRIMARY KEY (id),
   CONSTRAINT events_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.profiles (
+  id uuid NOT NULL,
+  user_metadata jsonb,
+  reputation_score integer NOT NULL DEFAULT 10,
+  CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

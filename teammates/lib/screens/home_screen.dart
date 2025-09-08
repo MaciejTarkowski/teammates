@@ -1,154 +1,103 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:teammates/main.dart';
-import 'package:teammates/screens/event_details_screen.dart';
 import 'package:teammates/services/error_service.dart';
+import 'package:teammates/widgets/event_list_item.dart';
+import 'package:teammates/widgets/event_search_wizard.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  HomeScreenState createState() => HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
-  Future<List<Map<String, dynamic>>>? _eventsFuture;
-  final _searchController = TextEditingController();
-  String? _selectedCategory;
-  Position? _currentPosition;
-  double? _selectedRadius;
+class _HomeScreenState extends State<HomeScreen> {
+  // State management
+  bool _isSearching = true;
+  bool _isLoading = false;
+  bool _canLoadMore = true;
+  int _page = 1;
+  final int _pageSize = 20;
 
-  final _categories = [
-    'piłka nożna',
-    'koszykówka',
-    'tenis',
-    'wyprawa motocyklowa',
-  ];
-  final _radii = {1: '1 km', 2: '2 km', 5: '5 km', 10: '10 km', 20: '20 km'};
+  Map<String, dynamic>? _searchParams;
+  List<Map<String, dynamic>> _events = [];
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
-    _searchController.addListener(() {
-      setState(() {
-        _eventsFuture = _getEvents();
-      });
-    });
-  }
-
-  Future<void> _initializeData() async {
-    await _getCurrentLocation();
-    if (mounted) {
-      setState(() {
-        _eventsFuture = _getEvents();
-      });
-    }
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void refreshEvents() {
-    setState(() {
-      _eventsFuture = _getEvents();
-    });
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Brak uprawnień do lokalizacji'),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-          return;
-        }
-      }
-      if (permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Uprawnienia do lokalizacji zostały trwale odrzucone',
-              ),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-      );
-      setState(() {
-        _currentPosition = position;
-      });
-    } catch (e) {
-      ErrorService.logError(errorMessage: e.toString(), operationType: 'getCurrentLocation-main');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Błąd pobierania lokalizacji: $e'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent * 0.9 &&
+        !_isLoading &&
+        _canLoadMore) {
+      _fetchEvents();
     }
   }
 
-  Future<List<Map<String, dynamic>>> _getEvents() async {
-    List<Map<String, dynamic>> events = [];
+  void _resetSearch() {
+    setState(() {
+      _isSearching = true;
+      _events = [];
+      _page = 1;
+      _canLoadMore = true;
+      _searchParams = null;
+    });
+  }
+
+  Future<void> _startSearch(Map<String, dynamic> params) async {
+    setState(() {
+      _searchParams = params;
+      _isSearching = false;
+      _events = [];
+      _page = 1;
+      _canLoadMore = true;
+    });
+    await _fetchEvents();
+  }
+
+  Future<void> _fetchEvents() async {
+    if (_isLoading || !_canLoadMore || _searchParams == null) return;
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      debugPrint('Current Position: $_currentPosition');
-      debugPrint('Selected Radius: $_selectedRadius');
+      final params = {
+        'p_lat': _searchParams!['lat'],
+        'p_lng': _searchParams!['lng'],
+        'p_radius_meters': _searchParams!['radius'], // Use radius from search params
+        'p_category': _searchParams!['category'],
+        'p_start_date': _searchParams!['startDate'],
+        'p_end_date': _searchParams!['endDate'],
+        'p_page_size': _pageSize,
+        'p_page_number': _page,
+      };
 
-      double effectiveRadiusKm =
-          _selectedRadius ?? 100.0; // Domyślny promień 100km dla 'Dowolny'
+      final newEvents = await supabase.rpc('search_events', params: params);
 
-      if (_currentPosition != null) {
-        final rpcParams = {
-          'user_lat': _currentPosition!.latitude,
-          'user_lng': _currentPosition!.longitude,
-          'radius_km': effectiveRadiusKm,
-        };
-        debugPrint('RPC Params: $rpcParams');
-        events = await supabase.rpc('get_events_in_radius', params: rpcParams);
-        debugPrint('Events from RPC: $events');
-      } else {
-        events = await supabase
-            .from('events')
-            .select()
-            .order('event_time', ascending: true);
-        debugPrint('Events from fallback: $events');
-      }
-
-      if (_searchController.text.isNotEmpty) {
-        events = events.where((event) {
-          final name = event['name']?.toString().toLowerCase() ?? '';
-          return name.contains(_searchController.text.toLowerCase());
-        }).toList();
-      }
-
-      if (_selectedCategory != null) {
-        events = events.where((event) {
-          return event['category'] == _selectedCategory;
-        }).toList();
-      }
+      setState(() {
+        if (newEvents.isEmpty || newEvents.length < _pageSize) {
+          _canLoadMore = false;
+        }
+        _events.addAll(List<Map<String, dynamic>>.from(newEvents));
+        _page++;
+      });
     } catch (e) {
-      ErrorService.logError(errorMessage: e.toString(), operationType: 'getEvents');
+      ErrorService.logError(
+          errorMessage: e.toString(), operationType: 'search_events');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -157,136 +106,82 @@ class HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
-      debugPrint('Error loading events: $e');
-      return [];
+      setState(() {
+        _canLoadMore = false;
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
-
-    return events;
   }
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      body: _isSearching
+          ? Center(
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: EventSearchWizard(
+                    onSearch: _startSearch,
+                  ),
+                ),
+              ),
+            )
+          : _buildResultsView(),
+    );
+  }
+
+  Widget _buildResultsView() {
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Column(
-            children: [
-              TextField(
-                controller: _searchController,
-                decoration: const InputDecoration(
-                  labelText: 'Szukaj po nazwie...',
-                  suffixIcon: Icon(Icons.search),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: DropdownButton<String>(
-                      value: _selectedCategory,
-                      isExpanded: true,
-                      hint: const Text('Filtruj po kategorii'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Wszystkie kategorie'),
-                        ),
-                        ..._categories.map(
-                          (cat) =>
-                              DropdownMenuItem(value: cat, child: Text(cat)),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedCategory = value;
-                          _eventsFuture = _getEvents();
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: DropdownButton<double>(
-                      value: _selectedRadius,
-                      isExpanded: true,
-                      hint: const Text('Promień'),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Dowolny'),
-                        ),
-                        ..._radii.keys.map(
-                          (radius) => DropdownMenuItem(
-                            value: radius.toDouble(),
-                            child: Text(_radii[radius]!),
-                          ),
-                        ),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedRadius = value;
-                          _eventsFuture = _getEvents();
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+          child: ElevatedButton.icon(
+            onPressed: _resetSearch,
+            icon: const Icon(Icons.search),
+            label: const Text('Wyszukaj ponownie'),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size(double.infinity, 40),
+            ),
           ),
         ),
         Expanded(
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _eventsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('Błąd: ${snapshot.error}'));
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(
-                  child: Text('Brak wydarzeń spełniających kryteria.'),
-                );
-              }
-
-              final events = snapshot.data!;
-
-              return ListView.builder(
-                itemCount: events.length,
-                itemBuilder: (context, index) {
-                  final event = events[index];
-                  final eventTime = DateTime.parse(event['event_time']);
-
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    color: Theme.of(context).colorScheme.surface,
-                    child: ListTile(
-                      title: Text(event['name'] ?? 'Brak nazwy'),
-                      subtitle: Text(
-                        '${event['category']} \n${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}',
-                      ),
-                      trailing: const Icon(Icons.arrow_forward_ios),
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                EventDetailsScreen(eventId: event['id']),
-                          ),
-                        );
-                        refreshEvents();
+          child: _events.isEmpty && _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _events.isEmpty && !_isLoading
+                  ? const Center(
+                      child: Text('Brak wydarzeń spełniających kryteria.'),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: () async {
+                        _resetSearch();
+                        // The search wizard will be shown, no need to fetch here
                       },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _events.length + (_canLoadMore ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (index == _events.length) {
+                            return const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Center(child: CircularProgressIndicator()),
+                            );
+                          }
+                          final event = _events[index];
+                          return EventListItem(
+                            event: event,
+                            onRefresh: () {
+                              // A simple refresh of current data, might need a more specific implementation
+                              // For now, let's just rebuild state
+                              setState(() {});
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  );
-                },
-              );
-            },
-          ),
         ),
       ],
     );

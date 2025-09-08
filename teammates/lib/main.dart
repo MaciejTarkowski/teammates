@@ -3,15 +3,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/screens/splash_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:teammates/supabase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pl_PL', null);
 
   await Supabase.initialize(
-    url: 'https://jkzvbapuraymkkzzdygl.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprenZiYXB1cmF5bWtrenpkeWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5ODUxOTAsImV4cCI6MjA3MjU2MTE5MH0.I5ol5fauM-MkMbURTGairwdvIEEuZ9kdkjPB35ULbFo',
+    url: SupabaseOptions.url,
+    anonKey: SupabaseOptions.anonKey,
   );
 
   runApp(const MyApp());

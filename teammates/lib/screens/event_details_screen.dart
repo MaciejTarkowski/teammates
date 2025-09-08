@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/screens/attendance_screen.dart';
 import 'package:teammates/services/error_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final String eventId;
@@ -19,6 +20,25 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   void initState() {
     super.initState();
     _detailsFuture = _fetchDetails();
+  }
+
+  Future<void> _launchMaps(double? lat, double? lng) async {
+    if (lat == null || lng == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Brak współrzędnych dla tego wydarzenia.')),
+        );
+      }
+      return;
+    }
+    final Uri url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nie można otworzyć mapy.')),
+        );
+      }
+    }
   }
 
   Future<Map<String, dynamic>> _fetchDetails() async {
@@ -266,7 +286,21 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   'KIEDY: ${eventTime.day}.${eventTime.month}.${eventTime.year} o ${eventTime.hour}:${eventTime.minute.toString().padLeft(2, '0')}',
                 ),
                 const SizedBox(height: 8),
-                Text('GDZIE: ${event['location_text'] ?? 'Brak lokalizacji'}'),
+                InkWell(
+                  onTap: () => _launchMaps(event['location_lat'], event['location_lng']),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.location_on_outlined, color: Colors.blue, size: 18),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'GDZIE: ${event['location_text'] ?? 'Brak lokalizacji'}',
+                          style: const TextStyle(decoration: TextDecoration.underline, color: Colors.blue),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'ORGANIZATOR: $organizerName',
@@ -286,12 +320,19 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 // Lista uczestników zostanie dodana w przyszłości
                 const SizedBox(height: 24),
                 if (isOrganizer)
-                  ElevatedButton(
-                    onPressed: () => _showCancelEventDialog(event['id']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => _showCancelEventDialog(event['id']),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFD91B24),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text('Anuluj wydarzenie'),
                     ),
-                    child: const Text('Anuluj wydarzenie'),
                   )
                 else if (isUserSignedUp)
                   ElevatedButton(
