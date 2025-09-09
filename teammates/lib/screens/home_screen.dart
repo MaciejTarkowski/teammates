@@ -4,6 +4,7 @@ import 'package:teammates/main.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:teammates/widgets/event_list_item.dart';
 import 'package:teammates/widgets/event_search_wizard.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _canLoadMore = true;
   int _page = 1;
   final int _pageSize = 20;
+  double _selectedRadius = 5000; // Default to 5km in meters
 
   Map<String, dynamic>? _searchParams;
   List<Map<String, dynamic>> _events = [];
@@ -139,13 +141,48 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: ElevatedButton.icon(
-            onPressed: _resetSearch,
-            icon: const Icon(Icons.search),
-            label: const Text('Wyszukaj ponownie'),
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 40),
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _resetSearch,
+                  icon: const Icon(Icons.search),
+                  label: const Text('Wyszukaj ponownie'),
+                  style: getCustomButtonStyle(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: DropdownButton<double>(
+                  value: _selectedRadius,
+                  underline: const SizedBox(),
+                  items: const [
+                    DropdownMenuItem(value: 5000, child: Text('5 km')),
+                    DropdownMenuItem(value: 10000, child: Text('10 km')),
+                    DropdownMenuItem(value: 15000, child: Text('15 km')),
+                    DropdownMenuItem(value: 30000, child: Text('30 km')),
+                    DropdownMenuItem(value: 50000, child: Text('50 km')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedRadius = value;
+                        _searchParams!['radius'] = value;
+                        _events = [];
+                        _page = 1;
+                        _canLoadMore = true;
+                      });
+                      _fetchEvents();
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(

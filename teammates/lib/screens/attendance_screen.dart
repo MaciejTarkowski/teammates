@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final String eventId;
@@ -120,7 +122,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           children: [
                             ElevatedButton(onPressed: () => _markAttendance(userId, 'attended'), child: const Text('Obecny')),
                             ElevatedButton(onPressed: () => _markAttendance(userId, 'unjustified_absence'), child: const Text('Nieobecny')),
-                            ElevatedButton(onPressed: () => _markAttendance(userId, 'justified_absence'), child: const Text('Uspraw.')),
+                            ElevatedButton(onPressed: () => _markAttendance(userId, 'justified_absence'), style: getCustomButtonStyle(), child: const Text('Uspraw.')),
                           ],
                         ),
                     ],

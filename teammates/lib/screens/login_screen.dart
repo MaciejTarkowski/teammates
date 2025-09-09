@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/screens/main_screen.dart';
 import 'package:teammates/services/error_service.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -175,6 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       ElevatedButton(
                         onPressed: _signIn,
+                        style: getCustomButtonStyle(),
                         child: const Text('Zaloguj się'),
                       ),
                       const SizedBox(height: 12),

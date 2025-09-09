@@ -1,8 +1,8 @@
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:teammates/services/nominatim_service.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class EventSearchWizard extends StatefulWidget {
   final Function(Map<String, dynamic> searchParams) onSearch;
@@ -168,7 +168,7 @@ class _EventSearchWizardState extends State<EventSearchWizard> {
               width: 160,
               height: 50,
               child: ElevatedButton(
-                style: _getButtonStyle(),
+                style: getCustomButtonStyle(),
                 onPressed: () {
                   setState(() => _selectedCategory = category);
                   _nextPage();
@@ -193,7 +193,7 @@ class _EventSearchWizardState extends State<EventSearchWizard> {
           width: 160,
           height: 50,
           child: ElevatedButton(
-            style: _getButtonStyle(),
+            style: getCustomButtonStyle(),
             onPressed: () {
               setState(() {
                 final now = DateTime.now();
@@ -211,7 +211,7 @@ class _EventSearchWizardState extends State<EventSearchWizard> {
           width: 160,
           height: 50,
           child: ElevatedButton(
-            style: _getButtonStyle(),
+            style: getCustomButtonStyle(),
             onPressed: () async {
               final picked = await showDateRangePicker(
                 context: context,
@@ -309,7 +309,7 @@ class _EventSearchWizardState extends State<EventSearchWizard> {
                 width: 200,
                 height: 50,
                 child: ElevatedButton.icon(
-                  style: _getButtonStyle(),
+                  style: getCustomButtonStyle(),
                   icon: const Icon(Icons.my_location),
                   label: const Text("Użyj mojej lokalizacji"),
                   onPressed: _getCurrentLocation,
@@ -320,7 +320,7 @@ class _EventSearchWizardState extends State<EventSearchWizard> {
                 width: 200,
                 height: 50,
                 child: ElevatedButton(
-                  style: _getButtonStyle(),
+                  style: getCustomButtonStyle(),
                   onPressed: () {
                     if (_selectedLat != null && _selectedLng != null) {
                       _triggerSearch();

@@ -11,7 +11,7 @@ class EventListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final eventTime = DateTime.parse(event['event_time']);
-    final distanceInMeters = event['distance_meters'] as double?;
+    final distanceInMeters = (event['distance_meters'] as num?)?.toDouble();
 
     String distanceText = '';
     if (distanceInMeters != null) {
@@ -36,6 +36,17 @@ class EventListItem extends StatelessWidget {
             Text(event['category'] ?? 'Brak kategorii'),
             const SizedBox(height: 4),
             Text(DateFormat('d MMMM yyyy, HH:mm').format(eventTime)),
+            if (event['status'] == 'held')
+              const Padding(
+                padding: EdgeInsets.only(top: 4.0),
+                child: Text(
+                  'Wydarzenie odbyło się',
+                  style: TextStyle(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             if (distanceText.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 4.0),

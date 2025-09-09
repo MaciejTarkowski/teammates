@@ -151,8 +151,23 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
           color: isOrganizer ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.surface,
           child: ListTile(
             title: Text(event['name'] ?? 'Brak nazwy'),
-            subtitle: Text(
-              '${event['category']} o ${DateFormat.Hm('pl_PL').format(eventTime)}',
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${event['category']} o ${DateFormat.Hm('pl_PL').format(eventTime)}',
+                ),
+                if (event['status'] == 'held')
+                  const Text(
+                    'Wydarzenie odbyło się',
+                    style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                  )
+                else if (event['status'] == 'cancelled')
+                  const Text(
+                    'Wydarzenie anulowane',
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  ),
+              ],
             ),
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () async {

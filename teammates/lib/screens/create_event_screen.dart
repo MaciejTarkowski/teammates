@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:teammates/services/nominatim_service.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key});
@@ -412,6 +413,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     Center(
                       child: ElevatedButton(
                           onPressed: _submit,
+                          style: getCustomButtonStyle(),
                           child: const Text('Utwórz wydarzenie')),
                     )
                   ],

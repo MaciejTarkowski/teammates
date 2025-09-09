@@ -3,6 +3,8 @@ import 'package:teammates/main.dart';
 import 'package:teammates/screens/attendance_screen.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final String eventId;
@@ -45,7 +47,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
     try {
       final eventRes = await supabase
           .from('events')
-          .select()
+          .select('*, cancellation_reason, status')
           .eq('id', widget.eventId)
           .single();
 
@@ -192,12 +194,14 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           actions: <Widget>[
             TextButton(
               child: const Text('Anuluj'),
+              style: getCustomButtonStyle(),
               onPressed: () {
                 Navigator.of(context).pop();
               },
             ),
             TextButton(
               child: const Text('Potwierdź'),
+              style: getCustomButtonStyle(),
               onPressed: () {
                 _cancelEvent(eventId, _cancelReasonController.text);
                 Navigator.of(context).pop();
@@ -211,17 +215,19 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
   Future<void> _cancelEvent(String eventId, String? reason) async {
     try {
-      // Delete the event
-      await supabase.from('events').delete().eq('id', eventId);
+      await supabase.from('events').update({
+        'status': 'cancelled',
+        'cancellation_reason': reason,
+      }).eq('id', eventId);
 
       // TODO: Implement notification to participants about cancellation with reason
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Wydarzenie zostało anulowane!')),
       );
-      Navigator.of(
-        context,
-      ).pop(); // Go back to previous screen after cancellation
+      setState(() {
+        _detailsFuture = _fetchDetails(); // Refresh details
+      });
     } catch (error) {
       ErrorService.logError(
         eventId: eventId,
@@ -270,6 +276,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
               currentParticipants < event['max_participants'];
           final bool isEventFinished = eventTime.isBefore(DateTime.now());
 
+          print('Event status: ${event['status']}');
+          print('Cancellation reason: ${event['cancellation_reason']}');
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -311,6 +320,16 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   event['description'] ?? 'Brak opisu.',
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
+                Visibility(
+                  visible: event['status'] == 'cancelled' && event['cancellation_reason'] != null && event['cancellation_reason'].isNotEmpty,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Text(
+                      'Powód anulowania: ${event['cancellation_reason']}',
+                      style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.redAccent),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
                 Text(
                   'ZAPISANI: ${currentParticipants} / ${event['max_participants']}',
@@ -319,37 +338,34 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                 const SizedBox(height: 8),
                 // Lista uczestników zostanie dodana w przyszłości
                 const SizedBox(height: 24),
-                if (isOrganizer)
+                if (isOrganizer && event['status'] == 'active')
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: () => _showCancelEventDialog(event['id']),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD91B24),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
+                      style: getCustomButtonStyle(),
                       child: const Text('Anuluj wydarzenie'),
                     ),
                   )
-                else if (isUserSignedUp)
+                else if (event['status'] == 'active')
                   ElevatedButton(
                     onPressed: _signOut,
+                    style: getCustomButtonStyle(),
                     child: const Text('Wypisz się'),
                   )
-                else if (canSignUp)
+                else if (canSignUp && event['status'] == 'active')
                   ElevatedButton(
                     onPressed: _signUp,
+                    style: getCustomButtonStyle(),
                     child: const Text('Zapisz się'),
                   )
-                else
-                  const ElevatedButton(
+                else if (event['status'] == 'active')
+                  ElevatedButton(
                     onPressed: null,
-                    child: Text('Brak miejsc'),
+                    style: getCustomButtonStyle(),
+                    child: const Text('Brak miejsc'),
                   ),
-                if (isOrganizer && isEventFinished)
+                if (isOrganizer && event['status'] == 'held')
                   Padding(
                     padding: const EdgeInsets.only(top: 16.0),
                     child: ElevatedButton(
@@ -360,6 +376,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                           ),
                         );
                       },
+                      style: getCustomButtonStyle(),
                       child: const Text('Zarządzaj obecnością'),
                     ),
                   ),

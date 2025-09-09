@@ -4,6 +4,7 @@ import 'package:teammates/screens/create_event_screen.dart';
 import 'package:teammates/screens/home_screen.dart';
 import 'package:teammates/screens/my_events_screen.dart';
 import 'package:teammates/screens/splash_screen.dart';
+import 'package:teammates/widgets/custom_button_style.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -77,6 +78,11 @@ class _MainScreenState extends State<MainScreen> {
           );
           // Refresh logic is now handled inside HomeScreen
         },
+        backgroundColor: const Color(0xFFD91B24),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
         child: const Icon(Icons.add),
       ),
     );
