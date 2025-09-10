@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:teammates/screens/event_details_screen.dart'; // Added import
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -111,6 +112,13 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             DateTime.parse(lastEventData['event_time']),
                           ),
                         ),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => EventDetailsScreen(eventId: lastEventData['id']),
+                            ),
+                          );
+                        },
                       )
                     : const Text('Użytkownik nie dołączył do żadnego wydarzenia.'),
               ],
@@ -121,3 +129,4 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 }
+

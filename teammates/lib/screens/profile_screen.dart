@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:teammates/screens/event_details_screen.dart'; // Added import
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -158,7 +159,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       DateTime.parse(_lastEventData!['event_time']),
                     ),
                   ),
-                  // Można dodać onTap, aby przejść do szczegółów wydarzenia
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => EventDetailsScreen(eventId: _lastEventData!['id']),
+                      ),
+                    );
+                  },
                 )
               : const Text('Nie dołączyłeś do żadnego wydarzenia.'),
           const Spacer(),

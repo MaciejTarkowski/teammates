@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart'; // Added for kIsWeb
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -288,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         icon: const Icon(Icons.facebook),
                         label: const Text('Zaloguj się z Facebook'),
                       ),
-                      if (Platform.isIOS || Platform.isMacOS)
+                      if (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
                         Padding(
                           padding: const EdgeInsets.only(top: 12.0),
                           child: ElevatedButton.icon(
