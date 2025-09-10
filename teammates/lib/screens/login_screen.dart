@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/main.dart';
-import 'package:teammates/screens/main_screen.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:teammates/widgets/custom_button_style.dart';
 
@@ -20,28 +20,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
 
-  late final StreamSubscription<AuthState> _authStateSubscription;
-
-  @override
-  void initState() {
-    super.initState();
-    _authStateSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      final session = data.session;
-      if (session != null) {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
-        }
-      }
-    });
-  }
-
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _authStateSubscription.cancel();
     super.dispose();
   }
 
@@ -53,28 +35,37 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await supabase.auth.signInWithPassword(
+      final response = await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      if (response.user != null && mounted) {
+        Navigator.of(context).pushReplacementNamed('/main');
+      }
     } on AuthException catch (error) {
       ErrorService.logError(
-          errorMessage: error.message, operationType: 'signIn');
+        errorMessage: error.message,
+        operationType: 'signIn',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(error.message),
-              backgroundColor: Theme.of(context).colorScheme.error),
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } catch (error) {
       ErrorService.logError(
-          errorMessage: error.toString(), operationType: 'signIn-general');
+        errorMessage: error.toString(),
+        operationType: 'signIn-general',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: const Text('Wystąpił nieoczekiwany błąd'),
-              backgroundColor: Theme.of(context).colorScheme.error),
+            content: const Text('Wystąpił nieoczekiwany błąd'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
@@ -101,27 +92,34 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Sprawdź email, aby potwierdzić rejestrację!')),
+            content: Text('Sprawdź email, aby potwierdzić rejestrację!'),
+          ),
         );
       }
     } on AuthException catch (error) {
       ErrorService.logError(
-          errorMessage: error.message, operationType: 'signUp');
+        errorMessage: error.message,
+        operationType: 'signUp',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(error.message),
-              backgroundColor: Theme.of(context).colorScheme.error),
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     } catch (error) {
       ErrorService.logError(
-          errorMessage: error.toString(), operationType: 'signUp-general');
+        errorMessage: error.toString(),
+        operationType: 'signUp-general',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: const Text('Wystąpił nieoczekiwany błąd'),
-              backgroundColor: Theme.of(context).colorScheme.error),
+            content: const Text('Wystąpił nieoczekiwany błąd'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
         );
       }
     }
@@ -130,6 +128,102 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _googleSignIn() async {
+    try {
+      await supabase.auth.signInWithOAuth(OAuthProvider.google);
+    } on AuthException catch (error) {
+      ErrorService.logError(
+        errorMessage: error.message,
+        operationType: 'googleSignIn',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (error) {
+      ErrorService.logError(
+        errorMessage: error.toString(),
+        operationType: 'googleSignIn-general',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Wystąpił nieoczekiwany błąd'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _facebookSignIn() async {
+    try {
+      await supabase.auth.signInWithOAuth(OAuthProvider.facebook);
+    } on AuthException catch (error) {
+      ErrorService.logError(
+        errorMessage: error.message,
+        operationType: 'facebookSignIn',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (error) {
+      ErrorService.logError(
+        errorMessage: error.toString(),
+        operationType: 'facebookSignIn-general',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Wystąpił nieoczekiwany błąd'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _appleSignIn() async {
+    try {
+      await supabase.auth.signInWithOAuth(OAuthProvider.apple);
+    } on AuthException catch (error) {
+      ErrorService.logError(
+        errorMessage: error.message,
+        operationType: 'appleSignIn',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (error) {
+      ErrorService.logError(
+        errorMessage: error.toString(),
+        operationType: 'appleSignIn-general',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Wystąpił nieoczekiwany błąd'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
     }
   }
 
@@ -173,6 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const CircularProgressIndicator()
                 else
                   Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       ElevatedButton(
                         onPressed: _signIn,
@@ -180,12 +275,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: const Text('Zaloguj się'),
                       ),
                       const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _signUp,
-                        child: const Text('Zarejestruj się'),
+                      ElevatedButton.icon(
+                        onPressed: _googleSignIn,
+                        style: getCustomButtonStyle(),
+                        icon: const Icon(Icons.g_mobiledata), // Placeholder
+                        label: const Text('Zaloguj się z Google'),
                       ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _facebookSignIn,
+                        style: getCustomButtonStyle(),
+                        icon: const Icon(Icons.facebook),
+                        label: const Text('Zaloguj się z Facebook'),
+                      ),
+                      if (Platform.isIOS || Platform.isMacOS)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12.0),
+                          child: ElevatedButton.icon(
+                            onPressed: _appleSignIn,
+                            style: getCustomButtonStyle(),
+                            icon: const Icon(Icons.apple),
+                            label: const Text('Zaloguj się z Apple'),
+                          ),
+                        ),
                     ],
                   ),
+                const SizedBox(height: 24),
+                const SizedBox(height: 24),
+                OutlinedButton(
+                  onPressed: _signUp,
+                  child: const Text('Nie masz konta? Zarejestruj się'),
+                ),
               ],
             ),
           ),

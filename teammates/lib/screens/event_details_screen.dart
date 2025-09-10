@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/screens/attendance_screen.dart';
+import 'package:teammates/screens/user_profile_screen.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:teammates/widgets/custom_button_style.dart';
@@ -52,26 +53,19 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           .single();
 
       final organizerId = eventRes['organizer_id'];
-      String organizerName = 'Anonimowy'; // Default name
+      Map<String, dynamic>? organizerProfile;
       if (organizerId != null) {
         try {
           final List<dynamic> profileResList = await supabase.rpc(
-            'get_profile_with_email',
+            'get_profile',
             params: {'p_user_id': organizerId},
           );
           
           if (profileResList.isNotEmpty) {
-            final profileRes = profileResList.first as Map<String, dynamic>;
-            final Map<String, dynamic>? userMetadata = profileRes['user_metadata'] as Map<String, dynamic>?;
-
-            if (userMetadata != null) {
-              organizerName = userMetadata['full_name'] ?? userMetadata['email'] ?? 'Anonimowy';
-            } else {
-              organizerName = 'Anonimowy'; // Fallback if user_metadata is null
-            }
+            organizerProfile = profileResList.first as Map<String, dynamic>;
           }
         } catch (e) {
-          print('Could not fetch organizer profile with email: $e');
+          print('Could not fetch organizer profile: $e');
         }
       }
 
@@ -98,7 +92,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
         'participants': participantsRes,
         'isUserSignedUp': isUserSignedUp,
         'isOrganizer': isOrganizer,
-        'organizerName': organizerName,
+        'organizerProfile': organizerProfile,
       };
     } catch (error) {
       ErrorService.logError(
@@ -264,7 +258,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           final participants = data['participants'] as List;
           final isUserSignedUp = data['isUserSignedUp'] as bool;
           final isOrganizer = data['isOrganizer'] as bool;
-          final organizerName = data['organizerName'] as String;
+          final organizerProfile = data['organizerProfile'] as Map<String, dynamic>?;
+          final organizerName = organizerProfile?['username'] ?? 'Anonimowy';
+          final organizerReputation = organizerProfile?['reputation_score'] ?? 0;
 
           int currentParticipants = participants.length;
           if (isOrganizer && !isUserSignedUp) {
@@ -311,9 +307,31 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'ORGANIZATOR: $organizerName',
-                  style: Theme.of(context).textTheme.titleMedium,
+                InkWell(
+                  onTap: () {
+                    if (organizerProfile != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => UserProfileScreen(userId: organizerProfile['id']),
+                        ),
+                      );
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Text(
+                        'ORGANIZATOR: $organizerName',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.blue, decoration: TextDecoration.underline),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(Icons.star, color: Colors.amber, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        organizerReputation.toString(),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(

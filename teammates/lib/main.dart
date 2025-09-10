@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:teammates/screens/login_screen.dart';
+import 'package:teammates/screens/main_screen.dart';
 import 'package:teammates/screens/splash_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:teammates/supabase_options.dart';
@@ -46,7 +48,12 @@ class MyApp extends StatelessWidget {
           context,
         ).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
       ),
-      home: const SplashScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/main': (context) => const MainScreen(),
+      },
     );
   }
 }

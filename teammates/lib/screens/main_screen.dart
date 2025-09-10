@@ -1,10 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:teammates/main.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/screens/create_event_screen.dart';
 import 'package:teammates/screens/home_screen.dart';
 import 'package:teammates/screens/my_events_screen.dart';
-import 'package:teammates/screens/splash_screen.dart';
-import 'package:teammates/widgets/custom_button_style.dart';
+import 'package:teammates/screens/profile_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -15,16 +16,38 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
+  late final StreamSubscription<AuthState> _authStateSubscription;
 
-  late final List<Widget> _widgetOptions;
+  static const List<Widget> _widgetOptions = <Widget>[
+    HomeScreen(),
+    MyEventsScreen(),
+    ProfileScreen(),
+  ];
+
+  static const List<String> _widgetTitles = <String>[
+    'Nadchodzące wydarzenia',
+    'Moje wydarzenia',
+    'Mój Profil'
+  ];
 
   @override
   void initState() {
     super.initState();
-    _widgetOptions = <Widget>[
-      const HomeScreen(),
-      const MyEventsScreen(),
-    ];
+    _authStateSubscription =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final AuthChangeEvent event = data.event;
+      if (event == AuthChangeEvent.signedOut) {
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authStateSubscription.cancel();
+    super.dispose();
   }
 
   void _onItemTapped(int index) {
@@ -37,21 +60,8 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedIndex == 0 ? 'Nadchodzące wydarzenia' : 'Moje wydarzenia'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await supabase.auth.signOut();
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const SplashScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
-        ],
+        title: Text(_widgetTitles[_selectedIndex]),
+        automaticallyImplyLeading: false, // Removes back button
       ),
       body: IndexedStack(
         index: _selectedIndex,
@@ -67,16 +77,20 @@ class _MainScreenState extends State<MainScreen> {
             icon: Icon(Icons.calendar_today),
             label: 'Moje wydarzenia',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
         ],
         currentIndex: _selectedIndex,
         onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed, // To ensure all items are visible
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await Navigator.of(context).push(
+        onPressed: () {
+          Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const CreateEventScreen()),
           );
-          // Refresh logic is now handled inside HomeScreen
         },
         backgroundColor: const Color(0xFFD91B24),
         foregroundColor: Colors.white,
