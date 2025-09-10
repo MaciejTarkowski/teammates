@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/services/error_service.dart';
 import 'package:teammates/widgets/custom_button_style.dart';
+import 'package:teammates/widgets/register_modal.dart'; // Import RegisterModal
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -78,59 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _signUp() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await supabase.auth.signUp(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Sprawdź email, aby potwierdzić rejestrację!'),
-          ),
-        );
-      }
-    } on AuthException catch (error) {
-      ErrorService.logError(
-        errorMessage: error.message,
-        operationType: 'signUp',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(error.message),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    } catch (error) {
-      ErrorService.logError(
-        errorMessage: error.toString(),
-        operationType: 'signUp-general',
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Wystąpił nieoczekiwany błąd'),
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
-        );
-      }
-    }
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
+  
 
   Future<void> _googleSignIn() async {
     try {
@@ -304,7 +253,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 const SizedBox(height: 24),
                 OutlinedButton(
-                  onPressed: _signUp,
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => RegisterModal(),
+                    );
+                  },
                   child: const Text('Nie masz konta? Zarejestruj się'),
                 ),
               ],
