@@ -10,8 +10,8 @@ CREATE TABLE public.error_logs (
   operation_type text NOT NULL,
   event_data_snapshot jsonb,
   CONSTRAINT error_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT error_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT error_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+  CONSTRAINT error_logs_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT error_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.event_attendance (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -28,8 +28,8 @@ CREATE TABLE public.event_participants (
   user_id uuid NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT event_participants_pkey PRIMARY KEY (event_id, user_id),
-  CONSTRAINT event_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT event_participants_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id)
+  CONSTRAINT event_participants_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.events(id),
+  CONSTRAINT event_participants_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.events (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -44,6 +44,7 @@ CREATE TABLE public.events (
   location_lat double precision,
   location_lng double precision,
   cancellation_reason text,
+  status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'held'::text, 'cancelled'::text])),
   CONSTRAINT events_pkey PRIMARY KEY (id),
   CONSTRAINT events_organizer_id_fkey FOREIGN KEY (organizer_id) REFERENCES auth.users(id)
 );
@@ -51,6 +52,8 @@ CREATE TABLE public.profiles (
   id uuid NOT NULL,
   user_metadata jsonb,
   reputation_score integer NOT NULL DEFAULT 10,
+  username text UNIQUE,
+  avatar_url text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );

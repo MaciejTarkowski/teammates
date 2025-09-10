@@ -6,9 +6,11 @@ import 'package:teammates/screens/main_screen.dart';
 import 'package:teammates/screens/splash_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:teammates/supabase_options.dart';
+import 'package:url_strategy/url_strategy.dart'; // Import url_strategy
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  setPathUrlStrategy(); // Set path URL strategy
   await initializeDateFormatting('pl_PL', null);
 
   await Supabase.initialize(
