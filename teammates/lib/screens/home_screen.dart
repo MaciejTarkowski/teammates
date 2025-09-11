@@ -69,11 +69,16 @@ class _HomeScreenState extends State<HomeScreen> {
     await _fetchEvents();
   }
 
-  Future<void> _fetchEvents() async {
-    if (_isLoading || !_canLoadMore || _searchParams == null) return;
+  Future<void> _fetchEvents({bool refresh = false}) async {
+    if (_isLoading || (!_canLoadMore && !refresh) || _searchParams == null) return;
 
     setState(() {
       _isLoading = true;
+      if (refresh) {
+        _page = 1;
+        _events = [];
+        _canLoadMore = true;
+      }
     });
 
     try {
@@ -211,9 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           return EventListItem(
                             event: event,
                             onRefresh: () {
-                              // A simple refresh of current data, might need a more specific implementation
-                              // For now, let's just rebuild state
-                              setState(() {});
+                              _fetchEvents(refresh: true);
                             },
                           );
                         },

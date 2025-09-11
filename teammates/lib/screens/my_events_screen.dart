@@ -7,10 +7,10 @@ class MyEventsScreen extends StatefulWidget {
   const MyEventsScreen({super.key});
 
   @override
-  State<MyEventsScreen> createState() => _MyEventsScreenState();
+  State<MyEventsScreen> createState() => MyEventsScreenState();
 }
 
-class _MyEventsScreenState extends State<MyEventsScreen> {
+class MyEventsScreenState extends State<MyEventsScreen> {
   bool _isLoading = true;
   String? _error;
   Map<DateTime, List<Map<String, dynamic>>> _groupedEvents = {};
@@ -19,10 +19,10 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchAndGroupEvents();
+    fetchAndGroupEvents();
   }
 
-  Future<void> _fetchAndGroupEvents() async {
+  Future<void> fetchAndGroupEvents() async {
     try {
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) {
@@ -176,7 +176,7 @@ class _MyEventsScreenState extends State<MyEventsScreen> {
                   builder: (context) => EventDetailsScreen(eventId: event['id']),
                 ),
               );
-              _fetchAndGroupEvents(); // Refresh data after returning
+              fetchAndGroupEvents(); // Refresh data after returning
             },
           ),
         );

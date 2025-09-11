@@ -17,11 +17,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late final StreamSubscription<AuthState> _authStateSubscription;
+  final GlobalKey<MyEventsScreenState> _myEventsKey = GlobalKey();
+  final GlobalKey<ProfileScreenState> _profileKey = GlobalKey();
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HomeScreen(),
-    MyEventsScreen(),
-    ProfileScreen(),
+  late final List<Widget> _widgetOptions = <Widget>[
+    const HomeScreen(),
+    MyEventsScreen(key: _myEventsKey),
+    ProfileScreen(key: _profileKey),
   ];
 
   static const List<String> _widgetTitles = <String>[
@@ -54,6 +56,11 @@ class _MainScreenState extends State<MainScreen> {
     setState(() {
       _selectedIndex = index;
     });
+    if (index == 1) { // My Events tab
+      _myEventsKey.currentState?.fetchAndGroupEvents();
+    } else if (index == 2) { // Profile tab
+      _profileKey.currentState?.fetchProfile();
+    }
   }
 
   @override
@@ -90,7 +97,9 @@ class _MainScreenState extends State<MainScreen> {
         onPressed: () {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (context) => const CreateEventScreen()),
-          );
+          ).then((_) {
+            _myEventsKey.currentState?.fetchAndGroupEvents();
+          });
         },
         backgroundColor: const Color(0xFFD91B24),
         foregroundColor: Colors.white,

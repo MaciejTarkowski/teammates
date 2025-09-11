@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:teammates/screens/event_details_screen.dart'; // Added import
@@ -7,77 +10,166 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
 
   @override
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   Map<String, dynamic>? _profileData;
   Map<String, dynamic>? _lastEventData;
   String? _error;
+  bool _isEditingUsername = false;
+  late TextEditingController _usernameController;
 
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    fetchProfile();
+    _usernameController = TextEditingController();
   }
 
-  Future<void> _fetchProfile() async {
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> fetchProfile() async {
     setState(() {
       _isLoading = true;
     });
 
     try {
       final userId = Supabase.instance.client.auth.currentUser!.id;
-      
+
       // Fetch profile data
-      final profileResponse = await Supabase.instance.client
-          .rpc('get_profile', params: {'p_user_id': userId});
-      
+      final profileResponse = await Supabase.instance.client.rpc(
+        'get_profile',
+        params: {'p_user_id': userId},
+      );
+
       print('Supabase profile response: $profileResponse');
 
-      if (profileResponse.isNotEmpty && profileResponse[0]['username'] != null) {
+      if (profileResponse.isNotEmpty &&
+          profileResponse[0]['username'] != null) {
         _profileData = profileResponse[0];
+        _usernameController.text = _profileData!['username'];
       } else {
         // Try to create or update a profile if it doesn't exist or username is null.
         final user = Supabase.instance.client.auth.currentUser;
         if (user != null) {
-            final updates = {
-                'id': user.id,
-                'username': user.email!.split('@')[0],
-                // Preserve existing reputation and avatar if they exist
-                'reputation_score': profileResponse.isNotEmpty ? profileResponse[0]['reputation_score'] : 10,
-                'avatar_url': profileResponse.isNotEmpty ? profileResponse[0]['avatar_url'] : null,
-            };
-            await Supabase.instance.client.from('profiles').upsert(updates);
-            
-            // Re-fetch after upserting
-            final newProfileResponse = await Supabase.instance.client
-                .rpc('get_profile', params: {'p_user_id': userId});
+          final updates = {
+            'id': user.id,
+            'username': user.email!.split('@')[0],
+            // Preserve existing reputation and avatar if they exist
+            'reputation_score': profileResponse.isNotEmpty
+                ? profileResponse[0]['reputation_score']
+                : 10,
+            'avatar_url': profileResponse.isNotEmpty
+                ? profileResponse[0]['avatar_url']
+                : null,
+          };
+          await Supabase.instance.client.from('profiles').upsert(updates);
 
-            if (newProfileResponse.isNotEmpty) {
-                _profileData = newProfileResponse[0];
-            } else {
-                throw 'Profil nie został znaleziony nawet po próbie utworzenia.';
-            }
+          // Re-fetch after upserting
+          final newProfileResponse = await Supabase.instance.client.rpc(
+            'get_profile',
+            params: {'p_user_id': userId},
+          );
+
+          if (newProfileResponse.isNotEmpty) {
+            _profileData = newProfileResponse[0];
+            _usernameController.text = _profileData!['username'];
+          } else {
+            throw 'Profil nie został znaleziony nawet po próbie utworzenia.';
+          }
         } else {
-            throw 'Użytkownik niezalogowany.';
+          throw 'Użytkownik niezalogowany.';
         }
       }
 
       // Fetch last joined event
-      final lastEventResponse = await Supabase.instance.client
-          .rpc('get_last_joined_event', params: {'user_id_param': userId});
+      final lastEventResponse = await Supabase.instance.client.rpc(
+        'get_last_joined_event',
+        params: {'user_id_param': userId},
+      );
 
       if (lastEventResponse.isNotEmpty) {
         _lastEventData = lastEventResponse[0];
       }
-
     } catch (e) {
       setState(() {
         _error = 'Nie udało się załadować profilu: $e';
         print(_error); // Also print error to console
       });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _updateUsername() async {
+    final newUsername = _usernameController.text.trim();
+    if (newUsername.isNotEmpty) {
+      try {
+        await Supabase.instance.client.rpc(
+          'update_username',
+          params: {'new_username': newUsername},
+        );
+        setState(() {
+          _profileData!['username'] = newUsername;
+          _isEditingUsername = false;
+        });
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Błąd podczas aktualizacji nazwy użytkownika: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadAvatar() async {
+    final picker = ImagePicker();
+    final imageFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 300,
+      maxHeight: 300,
+    );
+    if (imageFile == null) {
+      return;
+    }
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final fileExt = imageFile.path.split('.').last;
+      final fileName = '${DateTime.now().toIso8601String()}.$fileExt';
+      final filePath = fileName;
+      await Supabase.instance.client.storage.from('avatars').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: imageFile.mimeType),
+          );
+      final imageUrl = Supabase.instance.client.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+      await Supabase.instance.client.from('profiles').update({
+        'avatar_url': imageUrl,
+      }).eq('id', Supabase.instance.client.auth.currentUser!.id);
+      setState(() {
+        _profileData!['avatar_url'] = imageUrl;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Błąd podczas przesyłania avatara: $e'),
+        ),
+      );
     } finally {
       setState(() {
         _isLoading = false;
@@ -98,7 +190,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return Center(child: Text(_error!, style: const TextStyle(color: Colors.red)));
+      return Center(
+        child: Text(_error!, style: const TextStyle(color: Colors.red)),
+      );
     }
     if (_profileData == null) {
       return const Center(child: Text('Nie znaleziono danych profilu.'));
@@ -107,7 +201,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildProfileView() {
-    final username = _profileData!['username'] ?? 'Brak nazwy';
     final reputation = _profileData!['reputation_score'] ?? 0;
     final avatarUrl = _profileData!['avatar_url'];
 
@@ -118,29 +211,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: Colors.grey.shade300,
-                child: avatarUrl != null && avatarUrl.isNotEmpty
-                    ? ClipOval(child: Image.network(avatarUrl, fit: BoxFit.cover))
-                    : const Icon(Icons.person, size: 40, color: Colors.white),
+              GestureDetector(
+                onTap: _uploadAvatar,
+                child: CircleAvatar(
+                  radius: 40,
+                  backgroundColor: Colors.grey.shade300,
+                  child: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? ClipOval(
+                          child: Image.network(avatarUrl, fit: BoxFit.cover, width: 80, height: 80,))
+                      : const Icon(Icons.person, size: 40, color: Colors.white),
+                ),
               ),
               const SizedBox(width: 20),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    username,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Reputacja: $reputation',
-                    style: const TextStyle(fontSize: 16, color: Colors.grey),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _isEditingUsername
+                              ? TextField(
+                                  controller: _usernameController,
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                  ),
+                                )
+                              : Text(
+                                  _profileData!['username'] ?? 'Brak nazwy',
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isEditingUsername ? Icons.done : Icons.edit,
+                          ),
+                          onPressed: () {
+                            if (_isEditingUsername) {
+                              _updateUsername();
+                            } else {
+                              setState(() {
+                                _isEditingUsername = true;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Reputacja: $reputation',
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-            ], 
+            ],
           ),
           const SizedBox(height: 30),
           const Divider(),
@@ -155,14 +289,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   leading: const Icon(Icons.event),
                   title: Text(_lastEventData!['name']),
                   subtitle: Text(
-                    DateFormat('d MMMM yyyy, HH:mm').format(
-                      DateTime.parse(_lastEventData!['event_time']),
-                    ),
+                    DateFormat(
+                      'd MMMM yyyy, HH:mm',
+                    ).format(DateTime.parse(_lastEventData!['event_time'])),
                   ),
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => EventDetailsScreen(eventId: _lastEventData!['id']),
+                        builder: (context) =>
+                            EventDetailsScreen(eventId: _lastEventData!['id']),
                       ),
                     );
                   },

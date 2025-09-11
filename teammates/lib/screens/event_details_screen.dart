@@ -1,3 +1,6 @@
+import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:teammates/main.dart';
 import 'package:teammates/screens/attendance_screen.dart';
@@ -70,7 +73,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       }
 
       final participantsRes = await supabase
-          .from('event_participants')
+          .from('event_attendance')
           .select('user_id')
           .eq('event_id', widget.eventId);
 
@@ -80,7 +83,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       if (currentUser != null) {
         isOrganizer = currentUser.id == eventRes['organizer_id'];
         final userSignUpRes = await supabase
-            .from('event_participants')
+            .from('event_attendance')
             .select()
             .eq('event_id', widget.eventId)
             .eq('user_id', currentUser.id);
@@ -107,7 +110,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
 
   Future<void> _signUp() async {
     try {
-      await supabase.from('event_participants').insert({
+      await supabase.from('event_attendance').insert({
         'event_id': widget.eventId,
         'user_id': supabase.auth.currentUser!.id,
       });
@@ -117,6 +120,32 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
       setState(() {
         _detailsFuture = _fetchDetails(); // Refresh details
       });
+
+      // Send email notification
+      final userEmail = supabase.auth.currentUser!.email;
+      final eventName = (await _detailsFuture)['event']['name'];
+      final eventDate = DateFormat('d MMMM yyyy, HH:mm').format(DateTime.parse((await _detailsFuture)['event']['event_time']));
+      final eventLocation = (await _detailsFuture)['event']['location_text'];
+
+      final response = await http.post(
+        Uri.parse('https://jkzvbapuraymkkzzdygl.supabase.co/functions/v1/send-signup-email'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${supabase.auth.currentSession!.accessToken}',
+        },
+        body: json.encode({
+          'userEmail': userEmail,
+          'eventName': eventName,
+          'eventDate': eventDate,
+          'eventLocation': eventLocation,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print('Email sent successfully!');
+      } else {
+        print('Failed to send email: ${response.body}');
+      }
     } catch (error) {
       ErrorService.logError(
         eventId: widget.eventId,
@@ -133,7 +162,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
   Future<void> _signOut() async {
     try {
       await supabase
-          .from('event_participants')
+          .from('event_attendance')
           .delete()
           .eq('event_id', widget.eventId)
           .eq('user_id', supabase.auth.currentUser!.id);
@@ -263,9 +292,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
           final organizerReputation = organizerProfile?['reputation_score'] ?? 0;
 
           int currentParticipants = participants.length;
-          if (isOrganizer && !isUserSignedUp) {
-            currentParticipants++; // Organizer is implicitly a participant
-          }
+          
 
           final eventTime = DateTime.parse(event['event_time']);
           final bool canSignUp =
@@ -365,7 +392,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                       child: const Text('Anuluj wydarzenie'),
                     ),
                   )
-                else if (event['status'] == 'active')
+                else if (isUserSignedUp && event['status'] == 'active')
                   ElevatedButton(
                     onPressed: _signOut,
                     style: getCustomButtonStyle(),
