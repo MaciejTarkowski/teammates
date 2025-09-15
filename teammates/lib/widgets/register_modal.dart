@@ -37,6 +37,7 @@ class _RegisterModalState extends State<RegisterModal> {
       await supabase.auth.signUp(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
+        emailRedirectTo: 'https://teammates-app.vercel.app/confirmation-success',
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

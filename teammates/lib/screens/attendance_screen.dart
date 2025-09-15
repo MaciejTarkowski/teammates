@@ -23,7 +23,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchParticipants() async {
-    // Fetch event details to get organizer ID
+    // 1. Fetch event details to get organizer ID
     final eventRes = await supabase
         .from('events')
         .select('organizer_id')
@@ -31,38 +31,47 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         .single();
     final organizerId = eventRes['organizer_id'];
 
-    // Fetch participants with their profiles using the new RPC function
-    final profilesRes = await supabase.rpc(
-      'get_event_participants_with_profiles',
-      params: {'p_event_id': widget.eventId},
-    );
-
-    // Filter out the organizer
-    final filteredParticipants = (profilesRes as List)
-        .map((p) => p as Map<String, dynamic>)
-        .where((p) => p['id'] != organizerId) // Exclude organizer
-        .toList();
-
-    // Fetch already marked attendance
+    // 2. Fetch all attendance records for the event
     final attendanceRes = await supabase
         .from('event_attendance')
         .select('user_id, status')
         .eq('event_id', widget.eventId);
 
+    // Store marked attendance and collect user IDs
+    final List<String> userIds = [];
     for (var record in (attendanceRes as List)) {
-      _markedAttendance[record['user_id']] = record['status'];
+      final userId = record['user_id'] as String;
+      _markedAttendance[userId] = record['status'];
+      // Exclude the organizer from the list to be displayed
+      if (userId != organizerId) {
+        userIds.add(userId);
+      }
     }
 
-    return filteredParticipants;
+    // If there are no participants other than the organizer, return empty list
+    if (userIds.isEmpty) {
+      return [];
+    }
+
+    // 3. Fetch profiles for all participants (excluding the organizer)
+    final profilesRes = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url') // Fetch necessary fields
+        .inFilter('id', userIds);
+
+    // The result from profilesRes is the list of participants to display
+    return (profilesRes as List).map((p) => p as Map<String, dynamic>).toList();
   }
 
   Future<void> _markAttendance(String userId, String status) async {
     try {
-      await supabase.from('event_attendance').insert({
+      // Use upsert to handle both inserting new attendance and updating existing ones.
+      await supabase.from('event_attendance').upsert({
         'event_id': widget.eventId,
         'user_id': userId,
         'status': status,
-      });
+      }, onConflict: 'event_id, user_id');
+
       setState(() {
         _markedAttendance[userId] = status;
       });
@@ -92,7 +101,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             return Center(child: Text('Błąd: ${snapshot.error}'));
           }
           if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('Brak zapisanych uczestników.'));
+            return const Center(child: Text('Brak zapisanych uczestników do oznaczenia.'));
           }
 
           final participants = snapshot.data!;
@@ -101,8 +110,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             itemCount: participants.length,
             itemBuilder: (context, index) {
               final participant = participants[index];
-              final userId = participant['id'];
-              final userName = participant['user_metadata']?['full_name'] ?? participant['user_metadata']?['email'] ?? 'Anonimowy';
+              final userId = participant['id']; // Correct: from 'profiles' table
+              final userName = participant['username'] ?? 'Anonimowy'; // Correct: from 'profiles' table
               final alreadyMarkedStatus = _markedAttendance[userId];
 
               return Card(
@@ -112,17 +121,45 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName, style: Theme.of(context).textTheme.titleMedium),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundImage: (participant['avatar_url'] != null &&
+                                    participant['avatar_url'].isNotEmpty)
+                                ? NetworkImage(participant['avatar_url'])
+                                : null,
+                            child: (participant['avatar_url'] == null ||
+                                    participant['avatar_url'].isEmpty)
+                                ? const Icon(Icons.person)
+                                : null,
+                          ),
+                          const SizedBox(width: 12),
+                          Text(userName,
+                              style: Theme.of(context).textTheme.titleMedium),
+                        ],
+                      ),
                       const SizedBox(height: 16),
-                      if (alreadyMarkedStatus != null)
-                        Text('Oznaczono: $alreadyMarkedStatus', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+                      if (alreadyMarkedStatus != null && alreadyMarkedStatus != 'signed_up')
+                        Text('Oznaczono: $alreadyMarkedStatus',
+                            style: const TextStyle(
+                                color: Colors.green, fontWeight: FontWeight.bold))
                       else
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
-                            ElevatedButton(onPressed: () => _markAttendance(userId, 'attended'), child: const Text('Obecny')),
-                            ElevatedButton(onPressed: () => _markAttendance(userId, 'unjustified_absence'), child: const Text('Nieobecny')),
-                            ElevatedButton(onPressed: () => _markAttendance(userId, 'justified_absence'), style: getCustomButtonStyle(), child: const Text('Uspraw.')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    _markAttendance(userId, 'attended'),
+                                child: const Text('Obecny')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    _markAttendance(userId, 'unjustified_absence'),
+                                child: const Text('Nieobecny')),
+                            ElevatedButton(
+                                onPressed: () =>
+                                    _markAttendance(userId, 'justified_absence'),
+                                style: getCustomButtonStyle(),
+                                child: const Text('Uspraw.')),
                           ],
                         ),
                     ],

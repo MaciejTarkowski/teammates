@@ -346,6 +346,15 @@ class _EventDetailsScreenState extends State<EventDetailsScreen> {
                   },
                   child: Row(
                     children: [
+                      CircleAvatar(
+                        backgroundImage: (organizerProfile != null && organizerProfile['avatar_url'] != null && organizerProfile['avatar_url'].isNotEmpty)
+                            ? NetworkImage(organizerProfile['avatar_url'])
+                            : null,
+                        child: (organizerProfile == null || organizerProfile['avatar_url'] == null || organizerProfile['avatar_url'].isEmpty)
+                            ? const Icon(Icons.person)
+                            : null,
+                      ),
+                      const SizedBox(width: 8),
                       Text(
                         'ORGANIZATOR: $organizerName',
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.blue, decoration: TextDecoration.underline),

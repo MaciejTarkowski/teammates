@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Potwierdź swoją rejestrację w TeamMates</title>
+  <style>
+    body {
+      font-family: Georgia, serif;
+      background-color: #1C1C1C;
+      color: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #050505;
+      border: 1px solid #761F21;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .header {
+      background-color: #D91B24;
+      padding: 20px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 28px;
+    }
+    .content {
+      padding: 30px;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .content p {
+      font-size: 18px;
+    }
+    .button {
+      display: inline-block;
+      background-color: #D91B24;
+      color: #ffffff;
+      padding: 15px 25px;
+      margin: 20px 0;
+      border-radius: 5px;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .fallback {
+      font-size: 12px;
+      color: #aaaaaa;
+      margin-top: 20px;
+    }
+    .fallback a {
+      color: #bbbbbb;
+    }
+    .footer {
+      text-align: center;
+      padding: 20px;
+      font-size: 14px;
+      color: #888888;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>TeamMates</h1>
+    </div>
+    <div class="content">
+      <p>Witaj w TeamMates!</p>
+      <p>Dziękujemy za rejestrację. Proszę, kliknij poniższy przycisk, aby aktywować swoje konto i dołączyć do społeczności.</p>
+      <a href="{{ .ConfirmationURL }}" class="button">Aktywuj konto</a>
+      <div class="fallback">
+        <p>Jeśli przycisk nie działa, skopiuj i wklej ten link do swojej przeglądarki:</p>
+        <p><a href="{{ .ConfirmationURL }}">{{ .ConfirmationURL }}</a></p>
+      </div>
+    </div>
+    <div class="footer">
+      <p>Pozdrawiamy,<br>Zespół TeamMates</p>
+    </div>
+  </div>
+</body>
+</html>

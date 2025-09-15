@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:teammates/screens/login_screen.dart';
 import 'package:teammates/screens/main_screen.dart';
 import 'package:teammates/screens/splash_screen.dart';
+import 'package:teammates/screens/email_confirmation_success_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:teammates/supabase_options.dart';
 import 'package:url_strategy/url_strategy.dart'; // Import url_strategy
@@ -51,10 +52,19 @@ class MyApp extends StatelessWidget {
         ).textTheme.apply(bodyColor: Colors.white, displayColor: Colors.white),
       ),
       initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/main': (context) => const MainScreen(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/confirmation-success':
+            return MaterialPageRoute(
+                builder: (_) => const EmailConfirmationSuccessScreen());
+          case '/login':
+            return MaterialPageRoute(builder: (_) => const LoginScreen());
+          case '/main':
+            return MaterialPageRoute(builder: (_) => const MainScreen());
+          case '/':
+          default:
+            return MaterialPageRoute(builder: (_) => const SplashScreen());
+        }
       },
     );
   }
